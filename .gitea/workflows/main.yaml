@@ -1,0 +1,175 @@
+name: On Main
+run-name: On Main - ${{ gitea.actor }}
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # ========================================================
+  # 1. Bumpa versões, commita e cria tags (sempre)
+  # ========================================================
+  bump-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      BACKEND_VERSION: ${{ steps.bump.outputs.BACKEND_VERSION }}
+      FRONTEND_VERSION: ${{ steps.bump.outputs.FRONTEND_VERSION }}
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          git clone --branch main "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Configure Git
+        run: |
+          git config user.name "CI Bot"
+          git config user.email "bot@nilbyte.com"
+
+      - name: Bump versions, commit and tag
+        id: bump
+        run: |
+          FILES_CHANGED=""
+
+          # Backend — sempre bump
+          CURRENT=$(cat backend/VERSION)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          BACKEND_NEW="${MAJOR}.${MINOR}.${PATCH}"
+          echo "$BACKEND_NEW" > backend/VERSION
+          git add backend/VERSION
+          FILES_CHANGED="$FILES_CHANGED backend-v${BACKEND_NEW}"
+          echo "BACKEND_VERSION=$BACKEND_NEW" >> $GITHUB_OUTPUT
+
+          # Frontend — sempre bump
+          CURRENT=$(jq -r '.version' frontend/package.json)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          FRONTEND_NEW="${MAJOR}.${MINOR}.${PATCH}"
+          jq --arg v "$FRONTEND_NEW" '.version = $v' frontend/package.json > /tmp/pkg.json
+          mv /tmp/pkg.json frontend/package.json
+          git add frontend/package.json
+          FILES_CHANGED="$FILES_CHANGED frontend-v${FRONTEND_NEW}"
+          echo "FRONTEND_VERSION=$FRONTEND_NEW" >> $GITHUB_OUTPUT
+
+          PUSH_URL=$(echo "${{ gitea.server_url }}/${{ gitea.repository }}.git" | sed "s|://|://oauth2:${{ secrets.PACKAGES_TOKEN }}@|")
+
+          git commit -m "chore: bump versions $FILES_CHANGED [skip ci]"
+          
+          git pull --rebase origin main || { git rebase --abort; exit 1; }
+          git push "$PUSH_URL" HEAD:main
+
+          git tag -a "backend-v${BACKEND_NEW}" -m "backend-v${BACKEND_NEW}"
+          git push "$PUSH_URL" "backend-v${BACKEND_NEW}"
+
+          git tag -a "frontend-v${FRONTEND_NEW}" -m "frontend-v${FRONTEND_NEW}"
+          git push "$PUSH_URL" "frontend-v${FRONTEND_NEW}"
+
+  # ========================================================
+  # 2. Build & Push — sempre, paralelo
+  # ========================================================
+  build-backend:
+    needs: bump-versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          git clone --depth=1 --branch main \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Setup Go
+        run: |
+          for GO_DIR in /opt/hostedtoolcache/go/*/x64/bin /usr/local/go/bin /usr/bin /usr/local/bin /snap/bin; do
+            if [ -x "${GO_DIR}/go" ]; then
+              echo "${GO_DIR}" >> $GITHUB_PATH
+              export PATH="${GO_DIR}:$PATH"
+              go version
+              exit 0
+            fi
+          done
+          exit 1
+
+      - name: Build binary
+        working-directory: backend
+        env:
+          GOWORK: "off"
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -o main .
+
+      - name: Login to Gitea registry
+        run: |
+          GITEA_IP=$(docker network inspect nilbyte-git \
+            --format '{{range .Containers}}{{if eq .Name "gitea"}}{{.IPv4Address}}{{end}}{{end}}' \
+            | cut -d/ -f1)
+          echo "Gitea IP: $GITEA_IP"
+          REGISTRY="${GITEA_IP}:3000"
+          echo "REGISTRY=${REGISTRY}" >> $GITHUB_ENV
+          
+          # Fix Host DNS timeout for dockerd without sed -i (which breaks on bind mounts)
+          CF_IP=$(getent hosts gitea.nilbyte.com.br | awk '{print $1}' | head -n 1)
+          if [ -n "$CF_IP" ]; then
+            docker run --rm -v /etc/hosts:/host_hosts alpine sh -c "grep -v 'gitea.nilbyte.com.br' /host_hosts > /tmp/h || true; echo '$CF_IP gitea.nilbyte.com.br' >> /tmp/h; cat /tmp/h > /host_hosts"
+          fi
+          
+          sudo chmod 666 /var/run/docker.sock
+          echo "${{ secrets.PACKAGES_TOKEN }}" | docker login "$REGISTRY" -u notNilton --password-stdin
+
+      - name: Build and push Backend image
+        run: |
+          docker build -f backend/Dockerfile \
+            -t ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:latest \
+            -t ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:${{ needs.bump-versions.outputs.BACKEND_VERSION }} \
+            .
+          docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:latest
+          docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:${{ needs.bump-versions.outputs.BACKEND_VERSION }}
+
+  build-frontend:
+    needs: bump-versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          git clone --depth=1 --branch main \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: |
+          npm ci --cache .npm-cache
+          VITE_API_URL=https://api-radare.nilbyte.com.br \
+          VITE_APP_VERSION=${{ needs.bump-versions.outputs.FRONTEND_VERSION }} \
+          npm run build
+
+      - name: Login to Gitea registry
+        run: |
+          GITEA_IP=$(docker network inspect nilbyte-git \
+            --format '{{range .Containers}}{{if eq .Name "gitea"}}{{.IPv4Address}}{{end}}{{end}}' \
+            | cut -d/ -f1)
+          echo "Gitea IP: $GITEA_IP"
+          REGISTRY="${GITEA_IP}:3000"
+          echo "REGISTRY=${REGISTRY}" >> $GITHUB_ENV
+          
+          # Fix Host DNS timeout for dockerd without sed -i (which breaks on bind mounts)
+          CF_IP=$(getent hosts gitea.nilbyte.com.br | awk '{print $1}' | head -n 1)
+          if [ -n "$CF_IP" ]; then
+            docker run --rm -v /etc/hosts:/host_hosts alpine sh -c "grep -v 'gitea.nilbyte.com.br' /host_hosts > /tmp/h || true; echo '$CF_IP gitea.nilbyte.com.br' >> /tmp/h; cat /tmp/h > /host_hosts"
+          fi
+          
+          sudo chmod 666 /var/run/docker.sock
+          echo "${{ secrets.PACKAGES_TOKEN }}" | docker login "$REGISTRY" -u notNilton --password-stdin
+
+      - name: Build and push Frontend image
+        run: |
+          docker build -f frontend/Dockerfile \
+            -t ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:latest \
+            -t ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:${{ needs.bump-versions.outputs.FRONTEND_VERSION }} \
+            .
+          docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:latest
+          docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:${{ needs.bump-versions.outputs.FRONTEND_VERSION }}

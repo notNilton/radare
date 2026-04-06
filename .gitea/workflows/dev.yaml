@@ -1,0 +1,88 @@
+name: On Dev
+run-name: On Dev - ${{ gitea.actor }}
+
+on:
+  push:
+    branches:
+      - development
+  workflow_dispatch:
+
+jobs:
+  # ========================================================
+  # Build e teste do backend (compilação)
+  # ========================================================
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          git clone --depth=1 --branch "${{ gitea.ref_name }}" \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Setup Go
+        run: |
+          for GO_DIR in /opt/hostedtoolcache/go/*/x64/bin /usr/local/go/bin /usr/bin /usr/local/bin /snap/bin; do
+            if [ -x "${GO_DIR}/go" ]; then
+              echo "${GO_DIR}" >> $GITHUB_PATH
+              export PATH="${GO_DIR}:$PATH"
+              echo "Found Go at ${GO_DIR}/go"
+              go version
+              exit 0
+            fi
+          done
+          exit 1
+
+      - name: Build binaries
+        working-directory: backend
+        env:
+          GOWORK: "off"
+        run: go build ./...
+
+  # ========================================================
+  # Build do frontend (npm)
+  # ========================================================
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          git clone --depth=1 --branch "${{ gitea.ref_name }}" \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          echo "✅ Frontend build successful"
+
+  # ========================================================
+  # Valida arquivos docker-compose
+  # ========================================================
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          git clone --depth=1 --branch "${{ gitea.ref_name }}" \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Fix Docker Socket Permissions
+        run: sudo chmod 666 /var/run/docker.sock
+
+      - name: Validate docker-compose.yml
+        run: |
+          JWT_SECRET=ci-dummy-secret \
+          DB_HOST=localhost \
+          DB_PORT=5432 \
+          DB_USER=ci \
+          DB_PASSWORD=ci \
+          DB_NAME=ci \
+          docker compose -f docker-compose.yml config --quiet
+          echo "✅ docker-compose.yml válido"
