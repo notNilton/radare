@@ -1,0 +1,37 @@
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import AboutModal from './AboutModal';
+
+// Mock react-icons to avoid ESM issues in tests
+vi.mock('react-icons/ai', () => ({
+  AiOutlineClose: () => <span>Close</span>,
+  AiOutlineMail: () => <span>Mail</span>,
+}));
+vi.mock('react-icons/fa', () => ({
+  FaInfoCircle: () => <span>Info</span>,
+  FaGithub: () => <span>Github</span>,
+  FaLinkedin: () => <span>Linkedin</span>,
+}));
+
+describe('AboutModal', () => {
+  it('should not render when showAbout is false', () => {
+    render(<AboutModal showAbout={false} toggleAboutPopup={vi.fn()} />);
+    expect(screen.queryByText('Sobre')).not.toBeInTheDocument();
+  });
+
+  it('should render correctly when showAbout is true', () => {
+    render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
+    expect(screen.getByText('Sobre')).toBeInTheDocument();
+    // RADARE appears multiple times
+    expect(screen.getAllByText(/RADARE/)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Nilton Aguiar dos Santos/)).toBeInTheDocument();
+    expect(screen.getByText(/Go \(Golang\)/)).toBeInTheDocument();
+  });
+
+  it('should show contact links', () => {
+    render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
+    expect(screen.getByText('GitHub')).toBeInTheDocument();
+    expect(screen.getByText('LinkedIn')).toBeInTheDocument();
+    expect(screen.getByText('Email')).toBeInTheDocument();
+  });
+});

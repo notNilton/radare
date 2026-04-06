@@ -41,7 +41,7 @@ const AboutModal: React.FC<AboutModalProps> = ({
               <strong>RADARE</strong> utiliza TypeScript e React para garantir
               responsividade e agilidade no processo de desenvolvimento, e
               integra o ReactFlow para uma visualização dinâmica e interativa
-              dos nós. No backend, a aplicação é sustentada por Python e Flask,
+              dos nós. No backend, a aplicação é sustentada por Go (Golang),
               proporcionando uma arquitetura robusta e escalável para o
               processamento e gerenciamento dos dados.
             </p>
