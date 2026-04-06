@@ -68,9 +68,17 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// generateToken creates a new JWT for a user.
+func generateToken(userID uint, jwtSecret string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+	})
+
+	return token.SignedString([]byte(jwtSecret))
+}
+
 // LoginHandler creates a handler for the POST /api/login endpoint.
-// It authenticates a user and returns a JWT. This function is a factory
-// that injects the JWT secret, decoupling the handler from global configuration.
 func LoginHandler(jwtSecret string) middleware.AppHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if r.Method != http.MethodPost {
@@ -91,13 +99,7 @@ func LoginHandler(jwtSecret string) middleware.AppHandler {
 			return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Incorrect password"}
 		}
 
-		// Create the JWT
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user_id": user.ID,
-			"exp":     time.Now().Add(time.Hour * 72).Unix(),
-		})
-
-		tokenString, err := token.SignedString([]byte(jwtSecret))
+		tokenString, err := generateToken(user.ID, jwtSecret)
 		if err != nil {
 			return err
 		}
@@ -108,6 +110,24 @@ func LoginHandler(jwtSecret string) middleware.AppHandler {
 	}
 }
 
+// RefreshHandler creates a handler for refreshing an existing token.
+func RefreshHandler(jwtSecret string) middleware.AppHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		userID, ok := r.Context().Value("userID").(float64)
+		if !ok {
+			return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Unauthorized"}
+		}
+
+		newToken, err := generateToken(uint(userID), jwtSecret)
+		if err != nil {
+			return err
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"token": newToken})
+		return nil
+	}
+}
 // GetUserProfile returns the profile of the authenticated user.
 // The user ID is extracted from the JWT, which is validated by the AuthMiddleware.
 func GetUserProfile(w http.ResponseWriter, r *http.Request) error {

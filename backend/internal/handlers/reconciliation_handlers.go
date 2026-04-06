@@ -2,12 +2,15 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"radare-datarecon/backend/internal/database"
+	"radare-datarecon/backend/internal/middleware"
 	"radare-datarecon/backend/internal/models"
 	"radare-datarecon/backend/internal/reconciliation"
+	"strconv"
 	"sync"
 	"time"
 
@@ -175,18 +178,75 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// GetReconciliationHistory retorna o histórico de reconciliações do usuário autenticado.
+// GetReconciliationHistory retorna o histórico de reconciliações do usuário autenticado com paginação.
 func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value("userID").(float64)
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
 
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := 10
+	offset := (page - 1) * pageSize
+
 	var history []models.Reconciliation
-	if result := database.DB.Where("user_id = ?", uint(userID)).Find(&history); result.Error != nil {
+	var total int64
+
+	database.DB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID)).Count(&total)
+
+	if result := database.DB.Where("user_id = ?", uint(userID)).
+		Order("created_at desc").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&history); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico"}
 	}
 
+	response := map[string]interface{}{
+		"data":       history,
+		"total":      total,
+		"page":       page,
+		"page_size":  pageSize,
+		"last_page":  (total + int64(pageSize) - 1) / int64(pageSize),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(history)
+	return json.NewEncoder(w).Encode(response)
+}
+
+// ExportReconciliationHistory exporta o histórico do usuário para um arquivo CSV.
+func ExportReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := r.Context().Value("userID").(float64)
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
+	}
+
+	var history []models.Reconciliation
+	if result := database.DB.Where("user_id = ?", uint(userID)).Order("created_at desc").Find(&history); result.Error != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico para exportação"}
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment;filename=reconciliations.csv")
+
+	writer := csv.NewWriter(w)
+	defer writer.Flush()
+
+	// Escreve o cabeçalho
+	writer.Write([]string{"ID", "Data", "Status", "Medições", "Reconciliados"})
+
+	for _, rec := range history {
+		writer.Write([]string{
+			fmt.Sprintf("%d", rec.ID),
+			rec.CreatedAt.Format("2006-01-02 15:04:05"),
+			rec.ConsistencyStatus,
+			fmt.Sprintf("%v", rec.Measurements),
+			fmt.Sprintf("%v", rec.ReconciledValues),
+		})
+	}
+
+	return nil
 }

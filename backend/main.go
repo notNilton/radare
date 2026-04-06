@@ -35,6 +35,7 @@ func main() {
 	// Each handler is wrapped with middleware for logging, error handling, and authentication.
 	http.Handle("/api/register", middleware.LoggingMiddleware(middleware.ErrorHandler(handlers.Register)))
 	http.Handle("/api/login", middleware.LoggingMiddleware(middleware.ErrorHandler(handlers.LoginHandler(cfg.JWTSecret))))
+	http.Handle("/api/refresh", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.RefreshHandler(cfg.JWTSecret)))))
 	http.Handle("/api/profile", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetUserProfile))))
 	http.Handle("/api/profile/update", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.UpdateUserProfile))))
 	http.Handle("/api/profile/password", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.ChangePassword))))
@@ -44,6 +45,7 @@ func main() {
 	http.Handle("/api/current-values", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetCurrentValues))))
 	http.Handle("/api/reconcile", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.ReconcileData))))
 	http.Handle("/api/reconcile/history", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetReconciliationHistory))))
+	http.Handle("/api/reconcile/export", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.ExportReconciliationHistory))))
 	http.Handle("/api/dashboard/stats", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetDashboardStats))))
 	http.Handle("/healthz", middleware.LoggingMiddleware(middleware.ErrorHandler(handlers.HealthCheck)))
 
