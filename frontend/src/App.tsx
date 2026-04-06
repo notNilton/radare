@@ -4,6 +4,8 @@ import "./App.scss";
 import "./styles/Global.css";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import HistoryPage from "./pages/HistoryPage";
+import DashboardPage from "./pages/DashboardPage";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 const App: React.FC = () => {
@@ -16,7 +18,9 @@ const App: React.FC = () => {
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<HomePage />} />
-          {/* Add more protected routes here as needed */}
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          {/* Tags and Profile will be implemented next */}
         </Route>
 
         {/* Catch-all Route: Redirect to Home if authenticated, or Login if not */}
