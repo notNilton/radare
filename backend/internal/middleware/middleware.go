@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -36,17 +36,19 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 
-		log.Printf(
-			"Request Details: Method=%s, URL=%s, RemoteAddr=%s, UserAgent=%s",
-			r.Method,
-			r.URL.String(),
-			r.RemoteAddr,
-			r.UserAgent(),
+		slog.Info("Request received",
+			"method", r.Method,
+			"url", r.URL.String(),
+			"remote_addr", r.RemoteAddr,
+			"user_agent", r.UserAgent(),
 		)
 
 		next.ServeHTTP(w, r)
 
-		log.Printf("Request processed in %v", time.Since(startTime))
+		slog.Info("Request processed",
+			"url", r.URL.String(),
+			"duration", time.Since(startTime),
+		)
 	})
 }
 
@@ -58,11 +60,10 @@ func ErrorHandler(handler AppHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf(
-					"Critical Error: Recovered from panic on %s %s. Details: %v",
-					r.Method,
-					r.URL.String(),
-					err,
+				slog.Error("Critical Error: Recovered from panic",
+					"method", r.Method,
+					"url", r.URL.String(),
+					"error", err,
 				)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
@@ -70,11 +71,10 @@ func ErrorHandler(handler AppHandler) http.HandlerFunc {
 
 		err := handler(w, r)
 		if err != nil {
-			log.Printf(
-				"Request Error: Failed processing %s %s. Details: %v",
-				r.Method,
-				r.URL.String(),
-				err,
+			slog.Warn("Request Error",
+				"method", r.Method,
+				"url", r.URL.String(),
+				"error", err,
 			)
 
 			var httpErr HTTPError
