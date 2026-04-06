@@ -30,9 +30,11 @@
 - [x] **Docker**
     - [x] Otimizar `docker-compose.yml` (incluir DB persistente).
     - [x] Dockerfile multi-stage para Go.
-- [ ] **Testes**
+- [x] **Testes**
     - [x] Testes unitários para lógica de reconciliação.
-    - [ ] Testes de componentes no React.
-- [ ] **Documentação**
-    - [ ] Atualizar coleção Bruno (`docs/apiclient`).
-    - [ ] README.md com instruções de setup.
+    - [x] Testes de componentes no React (Vitest + Testing Library).
+
+## 📄 Documentação
+- [x] **Manutenção**
+    - [x] Atualizar coleção Bruno (`docs/apiclient`).
+    - [x] README.md com instruções de setup.
