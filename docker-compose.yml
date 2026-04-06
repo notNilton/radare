@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:18
+    image: postgres:16-alpine
     container_name: radare-database
     environment:
       POSTGRES_DB: radare
@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: radare
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     volumes:
-      - ./postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
     restart: unless-stopped
@@ -25,8 +25,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    volumes:
-      - ./backend:/app
     container_name: radare-backend
     restart: unless-stopped
     depends_on:
@@ -35,24 +33,21 @@ services:
     networks:
       - app-network
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=database
       - DB_PORT=5432
       - DB_USER=radare
       - DB_PASSWORD=radare
       - DB_NAME=radare
       - DB_SSLMODE=disable
-      - JWT_SECRET=your_secret_key
+      - JWT_SECRET=radare-super-secret-key-2026
       - PORT=8080
 
   frontend:
     build:
-      context: ./webapp
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
-    volumes:
-      - ./webapp:/app
-      - /app/node_modules
+      - "5173:5173"
     container_name: radare-frontend
     restart: unless-stopped
     depends_on:
@@ -60,7 +55,10 @@ services:
     networks:
       - app-network
     environment:
-      - VITE_API_URL=http://backend:8080
+      - VITE_API_URL=http://localhost:8080/api
+
+volumes:
+  postgres_data:
 
 networks:
   app-network:
