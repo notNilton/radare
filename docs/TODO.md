@@ -38,3 +38,23 @@
 - [x] **Manutenção**
     - [x] Atualizar coleção Bruno (`docs/apiclient`).
     - [x] README.md com instruções de setup.
+
+---
+
+## ⚡ Fase 2 - Expansão
+
+### 🚀 Backend (Melhorias)
+- [x] **Refresh Token:** Implementar renovação automática de sessão.
+- [x] **Exportação:** Rota para exportar resultados em CSV/Excel (`/api/reconcile/export`).
+- [x] **Filtros Avançados:** Busca e paginação no histórico de reconciliações.
+
+### 🎨 Frontend (Novas Funcionalidades)
+- [ ] **Gestão de Perfil:** Página para visualizar e editar dados do usuário (`/api/profile`).
+- [ ] **Gestão de Tags:** Interface CRUD para instrumentos e tags (`/api/tags`).
+- [x] **Dashboard e Histórico:** Visualização de estatísticas e histórico de reconciliações.
+- [x] **Componentes UI:** Refinar estilos com PrimeReact para tabelas e gráficos.
+
+### 🛠️ DevOps & CI/CD (Gitea Actions)
+- [x] **CI Pipeline:** Configurar workflow para rodar testes de Go e Vitest no Gitea.
+- [ ] **Docker Build:** Automatizar o build das imagens no registry.
+
