@@ -6,6 +6,8 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import HistoryPage from "./pages/HistoryPage";
 import DashboardPage from "./pages/DashboardPage";
+import TagsPage from "./pages/TagsPage";
+import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 const App: React.FC = () => {
@@ -20,7 +22,8 @@ const App: React.FC = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          {/* Tags and Profile will be implemented next */}
+          <Route path="/tags" element={<TagsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
 
         {/* Catch-all Route: Redirect to Home if authenticated, or Login if not */}

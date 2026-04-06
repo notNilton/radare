@@ -49,8 +49,8 @@
 - [x] **Filtros Avançados:** Busca e paginação no histórico de reconciliações.
 
 ### 🎨 Frontend (Novas Funcionalidades)
-- [ ] **Gestão de Perfil:** Página para visualizar e editar dados do usuário (`/api/profile`).
-- [ ] **Gestão de Tags:** Interface CRUD para instrumentos e tags (`/api/tags`).
+- [x] **Gestão de Perfil:** Página para visualizar e editar dados do usuário (`/api/profile`).
+- [x] **Gestão de Tags:** Interface CRUD para instrumentos e tags (`/api/tags`).
 - [x] **Dashboard e Histórico:** Visualização de estatísticas e histórico de reconciliações.
 - [x] **Componentes UI:** Refinar estilos com PrimeReact para tabelas e gráficos.
 
