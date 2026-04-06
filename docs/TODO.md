@@ -16,22 +16,22 @@
     - [x] Healthcheck detalhado.
 
 ## 🎨 Frontend (React + TypeScript)
-- [ ] **Estado e Navegação**
-    - [ ] Configurar Zustand ou Context API para estado global.
-    - [ ] Implementar Rotas Protegidas (Private Routes).
-- [ ] **Integração API**
-    - [ ] Interceptor Axios/Fetch para JWT.
-    - [ ] Tratamento global de erros (401, 500).
-- [ ] **Interface do Grafo (Canva)**
-    - [ ] Lógica de conexão entre nós em `Reconciliacao.tsx`.
-    - [ ] Interatividade nos nós customizados.
+- [x] **Estado e Navegação**
+    - [x] Configurar Zustand ou Context API para estado global.
+    - [x] Implementar Rotas Protegidas (Private Routes).
+- [x] **Integração API**
+    - [x] Interceptor Axios/Fetch para JWT.
+    - [x] Tratamento global de erros (401, 500).
+- [x] **Interface do Grafo (Canva)**
+    - [x] Lógica de conexão entre nós em `Reconciliacao.tsx`.
+    - [x] Interatividade nos nós customizados.
 
 ## 🛠️ DevOps & Qualidade
-- [ ] **Docker**
-    - [ ] Otimizar `docker-compose.yml` (incluir DB persistente).
-    - [ ] Dockerfile multi-stage para Go.
+- [x] **Docker**
+    - [x] Otimizar `docker-compose.yml` (incluir DB persistente).
+    - [x] Dockerfile multi-stage para Go.
 - [ ] **Testes**
-    - [ ] Testes unitários para lógica de reconciliação.
+    - [x] Testes unitários para lógica de reconciliação.
     - [ ] Testes de componentes no React.
 - [ ] **Documentação**
     - [ ] Atualizar coleção Bruno (`docs/apiclient`).
