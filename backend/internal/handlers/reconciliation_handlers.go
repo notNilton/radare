@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"radare-datarecon/backend/internal/database"
+	"radare-datarecon/backend/internal/models"
 	"radare-datarecon/backend/internal/reconciliation"
 	"sync"
 	"time"
@@ -126,11 +128,8 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Chama a função de reconciliação principal com os dados da requisição.
-	reconciledValues, err := reconciliation.Reconcile(req.Measurements, req.Tolerances, constraints)
+	result, err := reconciliation.Reconcile(req.Measurements, req.Tolerances, constraints)
 	if err != nil {
-		// Se a reconciliação falhar, retorna um erro com o status apropriado.
-		// Erros de validação dentro de Reconcile() devem idealmente retornar um erro específico.
-		// Por enquanto, tratamos a maioria como Bad Request, exceto por inversão de matriz que é mais sistêmico.
 		http.Error(w, fmt.Sprintf("Erro ao processar a reconciliação: %v", err), http.StatusBadRequest)
 		return nil
 	}
@@ -138,20 +137,56 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Calcula as correções aplicadas.
 	corrections := make([]float64, len(req.Measurements))
 	for i := range req.Measurements {
-		corrections[i] = reconciledValues[i] - req.Measurements[i]
+		corrections[i] = result.ReconciledValues[i] - req.Measurements[i]
+	}
+
+	// Determina o status de consistência.
+	status := "Inconsistente"
+	if reconciliation.IsConsistent(result.ChiSquare, result.DegreesOfFreedom, 0.05) {
+		status = "Consistente"
+	}
+
+	// Salva a reconciliação no banco de dados se o usuário estiver autenticado.
+	userID, ok := r.Context().Value("userID").(float64)
+	if ok {
+		dbRecon := models.Reconciliation{
+			UserID:            uint(userID),
+			Measurements:      req.Measurements,
+			Tolerances:        req.Tolerances,
+			Constraints:       req.Constraints,
+			ReconciledValues:  result.ReconciledValues,
+			Corrections:       corrections,
+			ConsistencyStatus: status,
+		}
+		database.DB.Create(&dbRecon)
 	}
 
 	// Prepara e envia a resposta de sucesso em formato JSON.
 	w.Header().Set("Content-Type", "application/json")
 	response := ReconciliationResponse{
-		ReconciledValues:  reconciledValues,
+		ReconciledValues:  result.ReconciledValues,
 		Corrections:       corrections,
-		ConsistencyStatus: "Consistente", // Este é um valor placeholder. Um teste real (ex: Qui-quadrado) seria implementado aqui.
+		ConsistencyStatus: status,
 	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		// Se a codificação da resposta falhar, o erro é retornado para o middleware.
 		return err
 	}
 
 	return nil
+}
+
+// GetReconciliationHistory retorna o histórico de reconciliações do usuário autenticado.
+func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := r.Context().Value("userID").(float64)
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
+	}
+
+	var history []models.Reconciliation
+	if result := database.DB.Where("user_id = ?", uint(userID)).Find(&history); result.Error != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico"}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(history)
 }

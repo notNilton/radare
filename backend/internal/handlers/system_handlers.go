@@ -3,17 +3,34 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"radare-datarecon/backend/internal/database"
 )
 
 // HealthCheck é o manipulador para o endpoint GET /healthz.
-// Ele fornece uma verificação de saúde básica para o serviço.
 func HealthCheck(w http.ResponseWriter, r *http.Request) error {
-	// Define o cabeçalho de status como 200 OK.
-	w.WriteHeader(http.StatusOK)
-	// Retorna uma resposta JSON simples indicando que o serviço está "ok".
-	response := map[string]string{"status": "ok"}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		return err
+	status := "ok"
+	dbStatus := "connected"
+
+	// Verifica a conexão com o banco de dados.
+	sqlDB, err := database.DB.DB()
+	if err != nil {
+		status = "error"
+		dbStatus = "disconnected"
+	} else if err := sqlDB.Ping(); err != nil {
+		status = "error"
+		dbStatus = "unreachable"
 	}
-	return nil
+
+	response := map[string]interface{}{
+		"status":   status,
+		"database": dbStatus,
+	}
+
+	if status != "ok" {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	return json.NewEncoder(w).Encode(response)
 }
