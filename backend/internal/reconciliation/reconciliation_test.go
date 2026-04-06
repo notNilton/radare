@@ -22,24 +22,28 @@ func equal(a, b []float64, tol float64) bool {
 
 func TestReconcile(t *testing.T) {
 	t.Run("Exemplo 2 do Documento", func(t *testing.T) {
-		// Dados do "Exemplo 2"
 		measurements := []float64{161, 79, 80}
 		tolerances := []float64{0.05, 0.01, 0.01}
 		constraintsData := []float64{1, -1, -1}
 		constraints := mat.NewDense(1, 3, constraintsData)
 
-		// Resultados esperados (mrec do documento)
 		expected := []float64{159.0383, 79.0189, 80.0194}
 
-		// Chama a função a ser testada
-		reconciled, err := Reconcile(measurements, tolerances, constraints)
+		result, err := Reconcile(measurements, tolerances, constraints)
 		if err != nil {
 			t.Fatalf("A função Reconcile retornou um erro inesperado: %v", err)
 		}
 
-		// Compara o resultado com os valores esperados
-		if !equal(reconciled, expected, 1e-4) {
-			t.Errorf("O resultado reconciliado estava incorreto.\nEsperado: %v\nObtido:   %v", expected, reconciled)
+		if !equal(result.ReconciledValues, expected, 1e-4) {
+			t.Errorf("O resultado reconciliado estava incorreto.\nEsperado: %v\nObtido:   %v", expected, result.ReconciledValues)
+		}
+
+		if result.DegreesOfFreedom != 1 {
+			t.Errorf("Graus de liberdade incorretos. Esperado: 1, Obtido: %d", result.DegreesOfFreedom)
+		}
+
+		if result.ChiSquare <= 0 {
+			t.Errorf("ChiSquare deve ser positivo. Obtido: %f", result.ChiSquare)
 		}
 	})
 
@@ -58,7 +62,7 @@ func TestReconcile(t *testing.T) {
 
 	t.Run("Incompatibilidade de Dimensão", func(t *testing.T) {
 		measurements := []float64{100, 50}
-		tolerances := []float64{0.01} // Incompatibilidade aqui
+		tolerances := []float64{0.01}
 		constraints := mat.NewDense(1, 2, []float64{1, -1})
 
 		_, err := Reconcile(measurements, tolerances, constraints)
@@ -66,4 +70,28 @@ func TestReconcile(t *testing.T) {
 			t.Error("Esperava-se um erro de incompatibilidade de dimensão, mas nenhum foi retornado")
 		}
 	})
+}
+
+func TestIsConsistent(t *testing.T) {
+	tests := []struct {
+		name      string
+		chiSquare float64
+		df        int
+		alpha     float64
+		want      bool
+	}{
+		{"Consistente df=1", 2.0, 1, 0.05, true},
+		{"Inconsistente df=1", 5.0, 1, 0.05, false},
+		{"Consistente df=3", 5.0, 3, 0.05, true},
+		{"Inconsistente df=3", 10.0, 3, 0.05, false},
+		{"Alfa Padrão", 2.0, 1, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsConsistent(tt.chiSquare, tt.df, tt.alpha); got != tt.want {
+				t.Errorf("IsConsistent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
