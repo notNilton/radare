@@ -179,6 +179,19 @@ const Node: React.FC = () => {
     );
   };
 
+  const onNodeDoubleClick = (event: React.MouseEvent, node: any) => {
+    const newLabel = window.prompt("Digite um novo nome para o nó:", node.data.label);
+    if (newLabel !== null) {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === node.id
+            ? { ...n, data: { ...n.data, label: newLabel } }
+            : n
+        )
+      );
+    }
+  };
+
   const edgeNames = edges.map((edge) => edge.nome);
 
   return (
@@ -195,6 +208,7 @@ const Node: React.FC = () => {
           nodeTypes={nodeTypes}
           fitView
           onEdgeDoubleClick={(event, edge) => onEdgeDoubleClick(edge.id)}
+          onNodeDoubleClick={onNodeDoubleClick}
         >
           <Panel position="top-left" className="top-left-panel custom-panel">
             <PanelButtons

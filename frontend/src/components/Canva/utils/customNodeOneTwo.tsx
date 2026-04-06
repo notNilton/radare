@@ -1,45 +1,38 @@
 import React, { memo } from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, NodeProps } from "reactflow";
 
-const customNodeOneThree = ({ data }) => {
+const cnOneTwo = ({ data }: NodeProps) => {
   const { label, isConnectable } = data;
 
   return (
-    <>
-      <Handle
-        type="source"
-        id="a"
-        position={Position.Left}
-        style={{ background: "black" }}
-        isConnectable={isConnectable}
-      ></Handle>
-      {/* <div>Custom Number Picker Node:</div>
-      <strong>{data.number}</strong>
-      <input
-        className="nodrag"
-        type="number"
-        onChange={(e) => data.onChange(Number(e.target.value))}
-        defaultValue={data.number}
-      /> */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="b"
-        style={{ background: "black" }}
-        isConnectable={isConnectable}
-      ></Handle>
-
+    <div className="custom-node cn-one-two">
       <Handle
         type="target"
         position={Position.Top}
-        id="c"
+        id="in-1"
         style={{ background: "#784be8" }}
         isConnectable={isConnectable}
-      ></Handle>
+      />
+      
+      <div className="node-label">{label}</div>
 
-      <div>{`${label}`}</div>
-    </>
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="out-1"
+        style={{ background: "black" }}
+        isConnectable={isConnectable}
+      />
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="out-2"
+        style={{ background: "black" }}
+        isConnectable={isConnectable}
+      />
+    </div>
   );
 };
 
-export default memo(customNodeOneThree);
+export default memo(cnOneTwo);
