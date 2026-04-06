@@ -58,3 +58,23 @@
 - [x] **CI Pipeline:** Configurar workflow para rodar testes de Go e Vitest no Gitea.
 - [ ] **Docker Build:** Automatizar o build das imagens no registry.
 
+---
+
+## 💎 Fase 3 - Profissionalização e Monitoramento
+
+### 🚀 Backend (Robustez)
+- [x] **Swagger/OpenAPI:** Implementar documentação automática com `swaggo`.
+- [x] **Validação de Dados:** Integrar `go-playground/validator` nos handlers.
+- [x] **WebSockets:** Notificações em tempo real para o Dashboard (`gorilla/websocket`).
+- [x] **Filtros de Histórico:** Implementar busca por data e status no banco.
+
+### 🎨 Frontend (UX & Resiliência)
+- [x] **Gestão de Erros:** Implementar `ErrorBoundary` global e centralizar Toasts.
+- [x] **Monitoramento Real-time:** Consumir dados via WebSocket no Dashboard.
+- [x] **Filtros Avançados:** Interface de busca refinada na página de histórico.
+
+### 🧪 Qualidade & E2E
+- [ ] **Testes E2E:** Configurar Playwright para validar o fluxo principal (Login -> Reconciliar).
+- [ ] **Testes de Integração:** Criar testes de repositório no Go com banco real (testcontainers).
+
+
