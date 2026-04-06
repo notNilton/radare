@@ -1,4 +1,3 @@
-// main.go is the entry point for the backend server.
 package main
 
 import (
@@ -7,15 +6,36 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
-	"time"
-
 	"radare-datarecon/backend/internal/config"
 	"radare-datarecon/backend/internal/database"
 	"radare-datarecon/backend/internal/handlers"
 	"radare-datarecon/backend/internal/middleware"
 	"radare-datarecon/backend/internal/models"
+	_ "radare-datarecon/backend/docs"
+	"syscall"
+	"time"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+// @title Radare API
+// @version 1.0
+// @description API para o sistema de reconciliação de dados Radare.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name Nilton Aguiar
+// @contact.url http://nilbyte.com.br
+// @contact.email nilton.naab@gmail.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 
 func main() {
 	// Load application configuration from environment variables.
@@ -29,7 +49,7 @@ func main() {
 	}
 
 	// Instantiate the authentication middleware with the JWT secret.
-	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
+	authMiddleware := middleware.AuthMiddleware(cfg.JWTSecret)
 
 	// Register handlers for the API endpoints.
 	// Each handler is wrapped with middleware for logging, error handling, and authentication.
@@ -47,20 +67,23 @@ func main() {
 	http.Handle("/api/reconcile/history", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetReconciliationHistory))))
 	http.Handle("/api/reconcile/export", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.ExportReconciliationHistory))))
 	http.Handle("/api/dashboard/stats", middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetDashboardStats))))
+	http.Handle("/api/ws", http.HandlerFunc(handlers.HandleWebsocket))
 	http.Handle("/healthz", middleware.LoggingMiddleware(middleware.ErrorHandler(handlers.HealthCheck)))
+
+	// Swagger UI
+	http.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	// Create and configure the HTTP server.
 	server := &http.Server{
 		Addr:         ":" + cfg.ServerPort,
-		Handler:      http.DefaultServeMux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Set up a channel to listen for OS signals (SIGINT, SIGTERM) for graceful shutdown.
+	// Channel to listen for operating system signals for graceful shutdown.
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	// Start the server in a separate goroutine.
 	go func() {

@@ -178,12 +178,17 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// GetReconciliationHistory retorna o histórico de reconciliações do usuário autenticado com paginação.
+// GetReconciliationHistory retorna o histórico de reconciliações do usuário autenticado com paginação e filtros.
 func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value("userID").(float64)
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+
+	// Filtros
+	status := r.URL.Query().Get("status")
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
 
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page <= 0 {
@@ -195,10 +200,21 @@ func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	var history []models.Reconciliation
 	var total int64
 
-	database.DB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID)).Count(&total)
+	query := database.DB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID))
 
-	if result := database.DB.Where("user_id = ?", uint(userID)).
-		Order("created_at desc").
+	if status != "" {
+		query = query.Where("consistency_status = ?", status)
+	}
+	if startDate != "" {
+		query = query.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("created_at <= ?", endDate)
+	}
+
+	query.Count(&total)
+
+	if result := query.Order("created_at desc").
 		Offset(offset).
 		Limit(pageSize).
 		Find(&history); result.Error != nil {

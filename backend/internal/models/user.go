@@ -17,10 +17,11 @@ type Address struct {
 // Contém informações de autenticação e detalhes do perfil.
 type User struct {
 	gorm.Model
-	Username     string  `gorm:"uniqueIndex;not null"`
-	Password     string  `gorm:"not null"`
-	Name         string  `json:"name"`
-	ContactEmail string  `gorm:"not null;default:'no-email-provided'"`
+	Username     string  `gorm:"uniqueIndex;not null" validate:"required,min=3,max=32"`
+	Password     string  `gorm:"not null" validate:"required,min=6"`
+	Name         string  `json:"name" validate:"required"`
+	ContactEmail string  `gorm:"not null;default:'no-email-provided'" validate:"required,email"`
 	Address      Address `gorm:"embedded"`
 	ProfileIcon  string  `json:"profile_icon"`
 }
+

@@ -9,29 +9,33 @@ import (
 	"radare-datarecon/backend/internal/models"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// AuthRequest defines the structure for authentication (login) requests.
-type AuthRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
+var validate = validator.New()
 
 // RegisterRequest defines the structure for a new user registration request.
-// It includes all the necessary fields to create a complete user profile.
 type RegisterRequest struct {
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	Name         string `json:"name"`
-	ContactEmail string `json:"contact_email"`
+	Username     string `json:"username" validate:"required,min=3"`
+	Password     string `json:"password" validate:"required,min=6"`
+	Name         string `json:"name" validate:"required"`
+	ContactEmail string `json:"contact_email" validate:"required,email"`
 	ProfileIcon  string `json:"profile_icon"`
 	models.Address
 }
 
 // Register creates a new user in the system.
-// This function handles the registration request, validates the data, and stores the new user in the database.
+// @Summary Register a new user
+// @Description Create a new user account with profile details
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Registration details"
+// @Success 201 {object} map[string]string
+// @Failure 400 {object} middleware.HTTPError
+// @Router /register [post]
 func Register(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != http.MethodPost {
 		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Method not allowed"}
@@ -42,7 +46,13 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "Invalid request body: " + err.Error()}
 	}
 
+	if err := validate.Struct(req); err != nil {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "Validation failed: " + err.Error()}
+	}
+
 	// Generate a hash of the password for secure storage.
+// ... (rest of the code unchanged)
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err // Return a 500 error if hashing fails.

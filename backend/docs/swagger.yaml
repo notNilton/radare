@@ -1,0 +1,87 @@
+basePath: /api
+definitions:
+  handlers.RegisterRequest:
+    properties:
+      city:
+        type: string
+      contact_email:
+        type: string
+      country:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      profile_icon:
+        type: string
+      state:
+        type: string
+      street:
+        type: string
+      username:
+        minLength: 3
+        type: string
+      zip_code:
+        type: string
+    required:
+    - contact_email
+    - name
+    - password
+    - username
+    type: object
+  middleware.HTTPError:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: nilton.naab@gmail.com
+    name: Nilton Aguiar
+    url: http://nilbyte.com.br
+  description: API para o sistema de reconciliação de dados Radare.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Radare API
+  version: "1.0"
+paths:
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account with profile details
+      parameters:
+      - description: Registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/middleware.HTTPError'
+      summary: Register a new user
+      tags:
+      - Auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
