@@ -3,13 +3,28 @@ import NavbarComponent from "../components/Navbar/NavbarComponent";
 import api from "../api/axios";
 import { Chart } from "primereact/chart";
 import { Card } from "primereact/card";
+import useWebSocket from 'react-use-websocket';
 import "./HomePage.scss";
 
 const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
+  const [realtimeData, setRealtimeData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // WebSocket connection
+  const { lastJsonMessage } = useWebSocket('ws://localhost:8080/api/ws', {
+    onOpen: () => console.log('WebSocket connected'),
+    shouldReconnect: (closeEvent) => true,
+  });
+
   useEffect(() => {
+    if (lastJsonMessage) {
+      setRealtimeData(lastJsonMessage);
+    }
+  }, [lastJsonMessage]);
+
+  useEffect(() => {
+// ... (rest of useEffect and pieData logic)
     const fetchStats = async () => {
       try {
         const response = await api.get("/dashboard/stats");
@@ -54,6 +69,22 @@ const DashboardPage: React.FC = () => {
           <div>Carregando estatísticas...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card title="Live Process Data" className="shadow-md border-t-4 border-blue-500">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="text-sm text-gray-500">Value 1</div>
+                  <div className="text-3xl font-mono">{realtimeData?.value1 || "--"}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Value 2</div>
+                  <div className="text-3xl font-mono">{realtimeData?.value2 || "--"}</div>
+                </div>
+              </div>
+              <div className="mt-4 text-xs text-gray-400">
+                Atualizado em: {new Date().toLocaleTimeString()}
+              </div>
+            </Card>
+
             <Card title="Total de Reconciliações" className="shadow-md">
               <div className="text-4xl font-bold text-blue-600">{stats?.total_reconciliations}</div>
             </Card>

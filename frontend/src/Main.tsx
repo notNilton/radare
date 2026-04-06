@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import ErrorBoundary from './components/Common/ErrorBoundary';
 
 // Importações de estilos
 import 'primereact/resources/themes/saga-blue/theme.css'; // Tema do PrimeReact
@@ -17,6 +18,8 @@ if (!rootElement) {
 const root = createRoot(rootElement);
 root.render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

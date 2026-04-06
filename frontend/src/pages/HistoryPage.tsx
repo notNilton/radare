@@ -5,7 +5,9 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { Paginator } from "primereact/paginator";
-import "./HomePage.scss"; // Reuse some layout styles
+import { Calendar } from "primereact/calendar";
+import { Dropdown } from "primereact/dropdown";
+import "./HomePage.scss"; 
 
 const HistoryPage: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
@@ -13,10 +15,19 @@ const HistoryPage: React.FC = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [page, setPage] = useState(0);
 
+  // Filters
+  const [status, setStatus] = useState(null);
+  const [dates, setDates] = useState<any>(null);
+
   const fetchHistory = async (pageNumber: number) => {
     setLoading(true);
     try {
-      const response = await api.get(`/reconcile/history?page=${pageNumber + 1}`);
+      let url = `/reconcile/history?page=${pageNumber + 1}`;
+      if (status) url += `&status=${status}`;
+      if (dates && dates[0]) url += `&start_date=${dates[0].toISOString()}`;
+      if (dates && dates[1]) url += `&end_date=${dates[1].toISOString()}`;
+
+      const response = await api.get(url);
       setHistory(response.data.data);
       setTotalRecords(response.data.total);
     } catch (error) {
@@ -28,11 +39,12 @@ const HistoryPage: React.FC = () => {
 
   useEffect(() => {
     fetchHistory(page);
-  }, [page]);
+  }, [page, status, dates]);
 
   const onPageChange = (event: any) => {
     setPage(event.page);
   };
+// ... (rest of the templates)
 
   const exportCSV = async () => {
     try {
@@ -71,6 +83,42 @@ const HistoryPage: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">Histórico de Reconciliações</h1>
           <Button label="Exportar CSV" icon="pi pi-file-excel" onClick={exportCSV} className="p-button-success" />
+        </div>
+
+        {/* Barra de Filtros */}
+        <div className="card shadow-sm bg-gray-50 p-4 mb-4 rounded-lg flex flex-wrap gap-4 items-end">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-bold text-gray-600">Status</label>
+            <Dropdown 
+              value={status} 
+              options={[
+                {label: 'Todos', value: null},
+                {label: 'Consistente', value: 'Consistente'},
+                {label: 'Inconsistente', value: 'Inconsistente'}
+              ]} 
+              onChange={(e) => setStatus(e.value)} 
+              placeholder="Filtrar por Status"
+              className="w-48"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-bold text-gray-600">Intervalo de Datas</label>
+            <Calendar 
+              value={dates} 
+              onChange={(e) => setDates(e.value)} 
+              selectionMode="range" 
+              readOnlyInput 
+              placeholder="Selecionar Datas"
+              showIcon
+              className="w-64"
+            />
+          </div>
+          <Button 
+            icon="pi pi-times" 
+            className="p-button-rounded p-button-secondary p-button-text" 
+            onClick={() => { setStatus(null); setDates(null); }} 
+            tooltip="Limpar Filtros"
+          />
         </div>
 
         <div className="card shadow-md bg-white rounded-lg overflow-hidden">
