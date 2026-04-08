@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"radare-datarecon/apps/backend/internal/models"
+	"radare-datarecon/database"
 
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -48,8 +48,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("open gorm connection: %v", err)
 	}
 
-	if err := db.AutoMigrate(&models.User{}, &models.Tag{}, &models.Reconciliation{}); err != nil {
-		t.Fatalf("auto migrate test schema: %v", err)
+	if err := database.MigrateUp(db); err != nil {
+		t.Fatalf("apply test migrations: %v", err)
 	}
 
 	return db
