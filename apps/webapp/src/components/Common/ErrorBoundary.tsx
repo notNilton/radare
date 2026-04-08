@@ -1,5 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
-import { Button } from "primereact/button";
+import { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
@@ -34,16 +33,18 @@ class ErrorBoundary extends Component<Props, State> {
           <div className="bg-white p-4 rounded shadow-inner mb-8 text-left overflow-auto max-w-full">
             <code className="text-sm text-red-500">{this.state.error?.message}</code>
           </div>
-          <Button 
-            label="Recarregar Página" 
-            icon="pi pi-refresh" 
-            onClick={() => window.location.reload()} 
-          />
+          <button
+            type="button"
+            className="rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-500"
+            onClick={() => window.location.reload()}
+          >
+            Recarregar página
+          </button>
         </div>
       );
     }
 
-    return this.children;
+    return this.props.children;
   }
 }
 

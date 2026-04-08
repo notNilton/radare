@@ -2,15 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import AboutModal from './AboutModal';
 
-// Mock react-icons to avoid ESM issues in tests
-vi.mock('react-icons/ai', () => ({
-  AiOutlineClose: () => <span>Close</span>,
-  AiOutlineMail: () => <span>Mail</span>,
-}));
-vi.mock('react-icons/fa', () => ({
-  FaInfoCircle: () => <span>Info</span>,
-  FaGithub: () => <span>Github</span>,
-  FaLinkedin: () => <span>Linkedin</span>,
+vi.mock('lucide-react', () => ({
+  CircleHelp: () => <span>Info</span>,
+  Github: () => <span>Github</span>,
+  Linkedin: () => <span>Linkedin</span>,
+  Mail: () => <span>Mail</span>,
+  X: () => <span>Close</span>,
 }));
 
 describe('AboutModal', () => {
@@ -25,7 +22,7 @@ describe('AboutModal', () => {
     // RADARE appears multiple times
     expect(screen.getAllByText(/RADARE/)[0]).toBeInTheDocument();
     expect(screen.getByText(/Nilton Aguiar dos Santos/)).toBeInTheDocument();
-    expect(screen.getByText(/Go \(Golang\)/)).toBeInTheDocument();
+    expect(screen.getByText(/backend em Go/)).toBeInTheDocument();
   });
 
   it('should show contact links', () => {
