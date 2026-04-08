@@ -6,12 +6,15 @@ import (
 	"radare-datarecon/backend/internal/database"
 	"radare-datarecon/backend/internal/middleware"
 	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/backend/internal/repositories"
 )
 
 // GetTags retorna todas as tags cadastradas.
 func GetTags(w http.ResponseWriter, r *http.Request) error {
-	var tags []models.Tag
-	if result := database.DB.Find(&tags); result.Error != nil {
+	tagRepository := repositories.NewTagRepository(database.DB)
+
+	tags, err := tagRepository.List()
+	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar tags"}
 	}
 
@@ -26,7 +29,8 @@ func CreateTag(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "Corpo da requisição inválido"}
 	}
 
-	if result := database.DB.Create(&tag); result.Error != nil {
+	tagRepository := repositories.NewTagRepository(database.DB)
+	if err := tagRepository.Create(&tag); err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao criar tag"}
 	}
 
@@ -41,7 +45,8 @@ func DeleteTag(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "ID da tag é obrigatório"}
 	}
 
-	if result := database.DB.Delete(&models.Tag{}, id); result.Error != nil {
+	tagRepository := repositories.NewTagRepository(database.DB)
+	if err := tagRepository.DeleteByID(id); err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao deletar tag"}
 	}
 

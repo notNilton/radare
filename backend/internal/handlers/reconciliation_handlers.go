@@ -10,6 +10,7 @@ import (
 	"radare-datarecon/backend/internal/middleware"
 	"radare-datarecon/backend/internal/models"
 	"radare-datarecon/backend/internal/reconciliation"
+	"radare-datarecon/backend/internal/repositories"
 	"strconv"
 	"sync"
 	"time"
@@ -47,6 +48,25 @@ var (
 	currentValues CurrentValues
 	mutex         sync.RWMutex // Mutex para garantir o acesso seguro e concorrente à variável `currentValues`.
 )
+
+func parseDateParam(value string, endOfDay bool) (*time.Time, error) {
+	if value == "" {
+		return nil, nil
+	}
+
+	layouts := []string{time.RFC3339, "2006-01-02"}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			if layout == "2006-01-02" && endOfDay {
+				parsed = parsed.Add(24*time.Hour - time.Nanosecond)
+			}
+			return &parsed, nil
+		}
+	}
+
+	return nil, fmt.Errorf("formato de data inválido: %s", value)
+}
 
 // init é uma função especial do Go que é executada na inicialização do pacote.
 // Aqui, ela inicia uma goroutine para atualizar os valores de exemplo periodicamente.
@@ -152,6 +172,7 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Salva a reconciliação no banco de dados se o usuário estiver autenticado.
 	userID, ok := r.Context().Value("userID").(float64)
 	if ok {
+		repository := repositories.NewReconciliationRepository(database.DB)
 		dbRecon := models.Reconciliation{
 			UserID:            uint(userID),
 			Measurements:      req.Measurements,
@@ -161,7 +182,7 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 			Corrections:       corrections,
 			ConsistencyStatus: status,
 		}
-		database.DB.Create(&dbRecon)
+		_ = repository.Create(&dbRecon)
 	}
 
 	// Prepara e envia a resposta de sucesso em formato JSON.
@@ -187,46 +208,43 @@ func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 
 	// Filtros
 	status := r.URL.Query().Get("status")
-	startDate := r.URL.Query().Get("start_date")
-	endDate := r.URL.Query().Get("end_date")
+	startDateValue := r.URL.Query().Get("start_date")
+	endDateValue := r.URL.Query().Get("end_date")
 
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page <= 0 {
 		page = 1
 	}
 	pageSize := 10
-	offset := (page - 1) * pageSize
 
-	var history []models.Reconciliation
-	var total int64
-
-	query := database.DB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID))
-
-	if status != "" {
-		query = query.Where("consistency_status = ?", status)
-	}
-	if startDate != "" {
-		query = query.Where("created_at >= ?", startDate)
-	}
-	if endDate != "" {
-		query = query.Where("created_at <= ?", endDate)
+	startDate, err := parseDateParam(startDateValue, false)
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: err.Error()}
 	}
 
-	query.Count(&total)
+	endDate, err := parseDateParam(endDateValue, true)
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: err.Error()}
+	}
 
-	if result := query.Order("created_at desc").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&history); result.Error != nil {
+	repository := repositories.NewReconciliationRepository(database.DB)
+	history, total, err := repository.ListByUser(uint(userID), repositories.ReconciliationHistoryFilter{
+		Status:    status,
+		StartDate: startDate,
+		EndDate:   endDate,
+		Page:      page,
+		PageSize:  pageSize,
+	})
+	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico"}
 	}
 
 	response := map[string]interface{}{
-		"data":       history,
-		"total":      total,
-		"page":       page,
-		"page_size":  pageSize,
-		"last_page":  (total + int64(pageSize) - 1) / int64(pageSize),
+		"data":      history,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"last_page": (total + int64(pageSize) - 1) / int64(pageSize),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -240,8 +258,9 @@ func ExportReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
 
-	var history []models.Reconciliation
-	if result := database.DB.Where("user_id = ?", uint(userID)).Order("created_at desc").Find(&history); result.Error != nil {
+	repository := repositories.NewReconciliationRepository(database.DB)
+	history, err := repository.ListAllByUser(uint(userID))
+	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico para exportação"}
 	}
 
