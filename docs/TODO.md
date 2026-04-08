@@ -56,7 +56,7 @@
 
 ### 🛠️ DevOps & CI/CD (Gitea Actions)
 - [x] **CI Pipeline:** Configurar workflow para rodar testes de Go e Vitest no Gitea.
-- [ ] **Docker Build:** Automatizar o build das imagens no registry.
+- [x] **Docker Build:** Automatizar o build das imagens no registry.
 
 ---
 
@@ -74,7 +74,6 @@
 - [x] **Filtros Avançados:** Interface de busca refinada na página de histórico.
 
 ### 🧪 Qualidade & E2E
-- [ ] **Testes E2E:** Configurar Playwright para validar o fluxo principal (Login -> Reconciliar).
-- [ ] **Testes de Integração:** Criar testes de repositório no Go com banco real (testcontainers).
-
+- [x] **Testes E2E:** Configurar Playwright para validar o fluxo principal (Login -> Reconciliar).
+- [x] **Testes de Integração:** Criar testes de repositório no Go com banco real (testcontainers).
 
