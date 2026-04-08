@@ -156,7 +156,7 @@ func GetUserProfile(w http.ResponseWriter, r *http.Request) error {
 
 	var user models.User
 	// Fetch the user from the database, omitting the password for security.
-	if result := database.DB.Select("id", "username", "name", "contact_email", "address", "profile_icon").First(&user, uint(userID)); result.Error != nil {
+	if result := database.DB.Omit("Password").First(&user, uint(userID)); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
 	}
 
@@ -187,11 +187,16 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) error {
 	// GORM allows updating from a map, which is ideal for partial updates.
 	// Prevent password from being updated through this endpoint.
 	delete(updates, "password")
+	flattenAddressUpdates(updates)
 	if result := database.DB.Model(&user).Updates(updates); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Error updating user profile"}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	if result := database.DB.Omit("Password").First(&user, uint(userID)); result.Error != nil {
+		return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
+	}
+
 	json.NewEncoder(w).Encode(user)
 	return nil
 }
@@ -239,4 +244,35 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Password changed successfully"})
 	return nil
+}
+
+func flattenAddressUpdates(updates map[string]interface{}) {
+	rawAddress, ok := updates["address"]
+	if !ok {
+		return
+	}
+
+	address, ok := rawAddress.(map[string]interface{})
+	if !ok {
+		delete(updates, "address")
+		return
+	}
+
+	if value, exists := address["street"]; exists {
+		updates["street"] = value
+	}
+	if value, exists := address["city"]; exists {
+		updates["city"] = value
+	}
+	if value, exists := address["state"]; exists {
+		updates["state"] = value
+	}
+	if value, exists := address["zip_code"]; exists {
+		updates["zip_code"] = value
+	}
+	if value, exists := address["country"]; exists {
+		updates["country"] = value
+	}
+
+	delete(updates, "address")
 }
