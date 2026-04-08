@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/models"
 
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"

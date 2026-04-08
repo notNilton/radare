@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/models"
 )
 
 func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testing.T) {

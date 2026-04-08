@@ -4,9 +4,9 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"radare-datarecon/backend/internal/database"
-	"radare-datarecon/backend/internal/middleware"
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/middleware"
+	"radare-datarecon/apps/backend/internal/models"
+	"radare-datarecon/database"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -86,6 +86,12 @@ func generateToken(userID uint, jwtSecret string) (string, error) {
 	})
 
 	return token.SignedString([]byte(jwtSecret))
+}
+
+// AuthRequest defines the structure for a login request.
+type AuthRequest struct {
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }
 
 // LoginHandler creates a handler for the POST /api/login endpoint.

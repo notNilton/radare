@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"radare-datarecon/backend/internal/config"
-	"radare-datarecon/backend/internal/database"
-	"radare-datarecon/backend/internal/handlers"
-	"radare-datarecon/backend/internal/middleware"
-	"radare-datarecon/backend/internal/models"
-	_ "radare-datarecon/backend/docs"
+	"radare-datarecon/apps/backend/internal/config"
+	"radare-datarecon/apps/backend/internal/handlers"
+	"radare-datarecon/apps/backend/internal/middleware"
+	"radare-datarecon/apps/backend/internal/models"
+	_ "radare-datarecon/apps/backend/docs"
+	"radare-datarecon/database"
 	"syscall"
 	"time"
 
@@ -41,8 +42,17 @@ func main() {
 	// Load application configuration from environment variables.
 	cfg := config.Load()
 
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
+		cfg.DBHost,
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBName,
+		cfg.DBPort,
+		cfg.DBSslMode,
+	)
+
 	// Connect to the database and migrate the schema.
-	database.Connect(cfg)
+	database.Connect(dsn)
 	if err := database.DB.AutoMigrate(&models.User{}, &models.Tag{}, &models.Reconciliation{}); err != nil {
 		slog.Error("Failed to migrate database schema", "error", err)
 		os.Exit(1)

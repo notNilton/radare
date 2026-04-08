@@ -3,10 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"radare-datarecon/backend/internal/database"
-	"radare-datarecon/backend/internal/middleware"
-	"radare-datarecon/backend/internal/models"
-	"radare-datarecon/backend/internal/repositories"
+	"radare-datarecon/apps/backend/internal/middleware"
+	"radare-datarecon/apps/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/repositories"
+	"radare-datarecon/database"
 )
 
 // GetTags retorna todas as tags cadastradas.

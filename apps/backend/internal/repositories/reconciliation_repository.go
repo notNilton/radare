@@ -3,7 +3,7 @@ package repositories
 import (
 	"time"
 
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/models"
 
 	"gorm.io/gorm"
 )

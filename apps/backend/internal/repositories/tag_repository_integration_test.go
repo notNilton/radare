@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/models"
 )
 
 func TestTagRepositoryCRUD(t *testing.T) {

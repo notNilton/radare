@@ -1,4 +1,4 @@
-module radare-datarecon/backend
+module radare-datarecon/apps/backend
 
 go 1.25.0
 
@@ -7,6 +7,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
+	radare-datarecon/database v0.0.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.39.0
@@ -16,6 +17,8 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.0
 )
+
+replace radare-datarecon/database => ../../database
 
 require (
 	dario.cat/mergo v1.0.2 // indirect

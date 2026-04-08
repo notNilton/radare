@@ -3,9 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"radare-datarecon/backend/internal/database"
-	"radare-datarecon/backend/internal/middleware"
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/middleware"
+	"radare-datarecon/apps/backend/internal/models"
+	"radare-datarecon/database"
 )
 
 // DashboardStats representa as estatísticas resumidas para o dashboard.

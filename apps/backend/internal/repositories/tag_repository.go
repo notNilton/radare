@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"radare-datarecon/backend/internal/models"
+	"radare-datarecon/apps/backend/internal/models"
 
 	"gorm.io/gorm"
 )

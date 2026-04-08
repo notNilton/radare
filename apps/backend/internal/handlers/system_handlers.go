@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"radare-datarecon/backend/internal/database"
+	"radare-datarecon/database"
 )
 
 // HealthCheck é o manipulador para o endpoint GET /healthz.
