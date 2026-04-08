@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, LockKeyhole, User } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
-import api from '../../api/axios';
+import { apiClient, getErrorMessage } from '../../lib/api-client';
 import { useAuthStore } from '../../store/AuthStore';
 
 export function LoginForm() {
@@ -10,17 +11,22 @@ export function LoginForm() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loginMutation = useMutation({
+    mutationFn: (credentials: { password: string; username: string }) =>
+      apiClient.post<{ token?: string }>('/login', credentials, {
+        authRedirect: false,
+      }),
+  });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setLoading(true);
 
     try {
-      const response = await api.post('/login', { username, password });
-      const token = response.data?.token as string | undefined;
+      const response = await loginMutation.mutateAsync({ username, password });
+      const token = response?.token;
 
       if (!token) {
         throw new Error('Resposta de login sem token.');
@@ -29,16 +35,9 @@ export function LoginForm() {
       setToken(token);
       await navigate({ to: '/' });
     } catch (err: unknown) {
-      const fallback = 'Erro ao realizar login. Verifique suas credenciais.';
-      if (typeof err === 'object' && err && 'response' in err) {
-        const candidate = (err as { response?: { data?: { message?: string } } })
-          .response?.data?.message;
-        setError(candidate ?? fallback);
-      } else {
-        setError(fallback);
-      }
-    } finally {
-      setLoading(false);
+      setError(
+        getErrorMessage(err, 'Erro ao realizar login. Verifique suas credenciais.'),
+      );
     }
   }
 
@@ -69,7 +68,7 @@ export function LoginForm() {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="operator"
-                disabled={loading}
+                disabled={loginMutation.isPending}
                 required
               />
             </div>
@@ -86,7 +85,7 @@ export function LoginForm() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
-                disabled={loading}
+                disabled={loginMutation.isPending}
                 required
               />
             </div>
@@ -101,9 +100,9 @@ export function LoginForm() {
           <button
             type="submit"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={loading}
+            disabled={loginMutation.isPending}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loginMutation.isPending ? 'Entrando...' : 'Entrar'}
             <ArrowRight className="h-4 w-4" />
           </button>
         </form>

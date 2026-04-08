@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Activity, BarChart3, DatabaseZap, Tags } from 'lucide-react';
-import api from '../../api/axios';
+import { apiClient } from '../../lib/api-client';
+import { queryKeys } from '../../lib/query-keys';
 import { API_URL } from '../../config/env';
 
 interface DashboardStats {
@@ -15,9 +17,11 @@ interface LiveValues {
 }
 
 export function DashboardOverview() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [liveValues, setLiveValues] = useState<LiveValues | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: stats, isLoading } = useQuery({
+    queryKey: queryKeys.dashboard.stats(),
+    queryFn: () => apiClient.get<DashboardStats>('/dashboard/stats'),
+  });
 
   const socketUrl = useMemo(
     () => API_URL.replace(/^http/, 'ws').replace(/\/api$/, '/api/ws'),
@@ -25,37 +29,17 @@ export function DashboardOverview() {
   );
 
   useEffect(() => {
-    let active = true;
-
-    async function load() {
-      try {
-        const response = await api.get('/dashboard/stats');
-        if (active) {
-          setStats(response.data);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-
     const socket = new WebSocket(socketUrl);
     socket.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as LiveValues;
-        if (active) {
-          setLiveValues(payload);
-        }
+        setLiveValues(payload);
       } catch {
         // Ignore malformed messages from the dev backend.
       }
     };
 
     return () => {
-      active = false;
       socket.close();
     };
   }, [socketUrl]);
@@ -63,13 +47,13 @@ export function DashboardOverview() {
   const cards = [
     {
       label: 'Reconciliações',
-      value: loading ? '...' : String(stats?.total_reconciliations ?? 0),
+      value: isLoading ? '...' : String(stats?.total_reconciliations ?? 0),
       icon: DatabaseZap,
       tone: 'text-cyan-200',
     },
     {
       label: 'Consistência',
-      value: loading
+      value: isLoading
         ? '...'
         : `${(stats?.consistent_percentage ?? 0).toFixed(1)}%`,
       icon: BarChart3,
@@ -77,7 +61,7 @@ export function DashboardOverview() {
     },
     {
       label: 'Tags',
-      value: loading ? '...' : String(stats?.total_tags ?? 0),
+      value: isLoading ? '...' : String(stats?.total_tags ?? 0),
       icon: Tags,
       tone: 'text-amber-200',
     },
