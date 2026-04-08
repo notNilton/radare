@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Download, Search, SlidersHorizontal } from 'lucide-react';
-import api from '../../api/axios';
+import { apiClient } from '../../lib/api-client';
+import { queryKeys } from '../../lib/query-keys';
 
 interface HistoryItem {
   ID: number | string;
@@ -11,60 +13,54 @@ interface HistoryItem {
 }
 
 export function HistoryTable() {
-  const [items, setItems] = useState<HistoryItem[]>([]);
   const [status, setStatus] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const filters = useMemo(
+    () => ({ endDate, page, startDate, status }),
+    [endDate, page, startDate, status],
+  );
 
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      setLoading(true);
-      try {
-        const searchParams = new URLSearchParams({ page: String(page + 1) });
-        if (status) {
-          searchParams.set('status', status);
-        }
-        if (startDate) {
-          searchParams.set('start_date', new Date(startDate).toISOString());
-        }
-        if (endDate) {
-          searchParams.set('end_date', new Date(endDate).toISOString());
-        }
-
-        const response = await api.get(`/reconcile/history?${searchParams.toString()}`);
-        if (!active) {
-          return;
-        }
-
-        setItems(response.data?.data ?? []);
-        setTotal(response.data?.total ?? 0);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.history.list(filters),
+    queryFn: async () => {
+      const searchParams = new URLSearchParams({ page: String(page + 1) });
+      if (status) {
+        searchParams.set('status', status);
       }
-    }
+      if (startDate) {
+        searchParams.set('start_date', new Date(startDate).toISOString());
+      }
+      if (endDate) {
+        searchParams.set('end_date', new Date(endDate).toISOString());
+      }
 
-    load();
-    return () => {
-      active = false;
-    };
-  }, [endDate, page, startDate, status]);
+      return apiClient.get<{ data?: HistoryItem[]; total?: number }>(
+        `/reconcile/history?${searchParams.toString()}`,
+      );
+    },
+  });
+
+  const items = data?.data ?? [];
+  const total = data?.total ?? 0;
 
   async function exportCsv() {
-    const response = await api.get('/reconcile/export', { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'reconciliations.csv');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    setExporting(true);
+    try {
+      const file = await apiClient.getBlob('/reconcile/export');
+      const url = window.URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'reconciliations.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -79,10 +75,11 @@ export function HistoryTable() {
         <button
           type="button"
           onClick={() => void exportCsv()}
+          disabled={exporting}
           className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950"
         >
           <Download className="h-4 w-4" />
-          Exportar CSV
+          {exporting ? 'Exportando...' : 'Exportar CSV'}
         </button>
       </section>
 
@@ -151,7 +148,7 @@ export function HistoryTable() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {isLoading ? (
                 <tr>
                   <td className="px-5 py-8 text-slate-400" colSpan={5}>
                     Carregando histórico...

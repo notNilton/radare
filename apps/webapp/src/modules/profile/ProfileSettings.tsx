@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
-import api from '../../api/axios';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient, getErrorMessage } from '../../lib/api-client';
+import { queryKeys } from '../../lib/query-keys';
 
 interface UserProfile {
   name: string;
@@ -14,6 +16,7 @@ interface UserProfile {
 }
 
 export function ProfileSettings() {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<UserProfile>({
     name: '',
     contact_email: '',
@@ -25,32 +28,49 @@ export function ProfileSettings() {
     confirm: '',
   });
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const { data: profile, isLoading } = useQuery({
+    queryKey: queryKeys.profile.detail(),
+    queryFn: () => apiClient.get<UserProfile>('/profile'),
+  });
 
   useEffect(() => {
-    let active = true;
-    async function load() {
-      const response = await api.get('/profile');
-      if (active) {
-        setUser(response.data);
-      }
+    if (profile) {
+      setUser(profile);
     }
+  }, [profile]);
 
-    void load();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const updateProfileMutation = useMutation({
+    mutationFn: (nextUser: UserProfile) => apiClient.put('/profile/update', nextUser),
+    onSuccess: async () => {
+      setMessage('Perfil atualizado.');
+      setProfileError(null);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.detail() });
+    },
+    onError: (error) => {
+      setProfileError(getErrorMessage(error, 'Nao foi possivel atualizar o perfil.'));
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: (payload: { current_password: string; new_password: string }) =>
+      apiClient.post('/profile/password', payload),
+    onSuccess: () => {
+      setPasswords({ current: '', next: '', confirm: '' });
+      setMessage('Senha alterada com sucesso.');
+      setProfileError(null);
+    },
+    onError: (error) => {
+      setProfileError(getErrorMessage(error, 'Nao foi possivel alterar a senha.'));
+    },
+  });
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
-    try {
-      await api.put('/profile/update', user);
-      setMessage('Perfil atualizado.');
-    } finally {
-      setLoading(false);
-    }
+    setMessage(null);
+    setProfileError(null);
+    await updateProfileMutation.mutateAsync(user);
   }
 
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
@@ -60,13 +80,12 @@ export function ProfileSettings() {
       return;
     }
 
-    await api.post('/profile/password', {
+    setMessage(null);
+    setProfileError(null);
+    await updatePasswordMutation.mutateAsync({
       current_password: passwords.current,
       new_password: passwords.next,
     });
-
-    setPasswords({ current: '', next: '', confirm: '' });
-    setMessage('Senha alterada com sucesso.');
   }
 
   return (
@@ -81,6 +100,12 @@ export function ProfileSettings() {
       {message ? (
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
           {message}
+        </div>
+      ) : null}
+
+      {profileError ? (
+        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+          {profileError}
         </div>
       ) : null}
 
@@ -136,10 +161,10 @@ export function ProfileSettings() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoading || updateProfileMutation.isPending}
               className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
             >
-              {loading ? 'Salvando...' : 'Salvar alterações'}
+              {updateProfileMutation.isPending ? 'Salvando...' : 'Salvar alterações'}
             </button>
           </form>
         </section>
@@ -174,9 +199,10 @@ export function ProfileSettings() {
 
             <button
               type="submit"
+              disabled={updatePasswordMutation.isPending}
               className="rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100"
             >
-              Alterar senha
+              {updatePasswordMutation.isPending ? 'Alterando...' : 'Alterar senha'}
             </button>
           </form>
         </section>

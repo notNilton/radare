@@ -1,4 +1,5 @@
 import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import {
   addEdge,
   Background,
@@ -18,7 +19,7 @@ import {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Download, Eye, GitBranchPlus, Play, Rows3, Sparkles } from 'lucide-react';
-import api from '../../api/axios';
+import { apiClient, getErrorMessage } from '../../lib/api-client';
 import { saveReconciliationEntry } from '../../lib/reconciliation-storage';
 
 type FlowNodeVariant = 'source' | 'process' | 'split' | 'merge' | 'sink';
@@ -142,6 +143,18 @@ export function ReconciliationCanvas() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [summaryVisible, setSummaryVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const reconcileMutation = useMutation({
+    mutationFn: (payload: {
+      constraints: number[][];
+      measurements: number[];
+      tolerances: number[];
+    }) =>
+      apiClient.post<{
+        reconciled_values: number[];
+        corrections: number[];
+        consistency_status: string;
+      }>('/reconcile', payload),
+  });
 
   const edgeNames = useMemo(
     () => edges.map((edge) => edge.data?.name ?? edge.id),
@@ -280,17 +293,11 @@ export function ReconciliationCanvas() {
       }
 
       const constraints = createAdjacencyMatrix();
-      const response = await api.post('/reconcile', {
+      const result = await reconcileMutation.mutateAsync({
         measurements,
         tolerances,
         constraints,
       });
-
-      const result = response.data as {
-        reconciled_values: number[];
-        corrections: number[];
-        consistency_status: string;
-      };
 
       saveReconciliationEntry({
         id: Date.now(),
@@ -305,12 +312,7 @@ export function ReconciliationCanvas() {
 
       setStatus(`Reconciliação concluída: ${result.consistency_status}`);
     } catch (error: unknown) {
-      const message =
-        typeof error === 'object' && error && 'response' in error
-          ? ((error as { response?: { data?: { message?: string } } }).response?.data?.message ??
-            'Erro durante a reconciliação.')
-          : 'Erro durante a reconciliação.';
-      setStatus(message);
+      setStatus(getErrorMessage(error, 'Erro durante a reconciliação.'));
     }
   }
 

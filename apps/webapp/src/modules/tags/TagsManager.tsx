@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
-import api from '../../api/axios';
+import { apiClient, getErrorMessage } from '../../lib/api-client';
+import { queryKeys } from '../../lib/query-keys';
 
 interface Tag {
   ID: number;
@@ -22,25 +24,39 @@ const emptyDraft: TagDraft = {
 };
 
 export function TagsManager() {
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<TagDraft>(emptyDraft);
   const [message, setMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  async function fetchTags() {
-    setLoading(true);
-    try {
-      const response = await api.get('/tags');
-      setTags(response.data ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: tags = [], isLoading } = useQuery({
+    queryKey: queryKeys.tags.list(),
+    queryFn: () => apiClient.get<Tag[]>('/tags'),
+  });
 
-  useEffect(() => {
-    void fetchTags();
-  }, []);
+  const createTagMutation = useMutation({
+    mutationFn: (nextDraft: TagDraft) => apiClient.post('/tags/create', nextDraft),
+    onSuccess: async () => {
+      setDraft(emptyDraft);
+      setModalOpen(false);
+      setMessage('Tag criada com sucesso.');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
+    },
+    onError: (error) => {
+      setMessage(getErrorMessage(error, 'Nao foi possivel criar a tag.'));
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/tags/delete?id=${id}`),
+    onSuccess: async () => {
+      setMessage('Tag excluida.');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
+    },
+    onError: (error) => {
+      setMessage(getErrorMessage(error, 'Nao foi possivel excluir a tag.'));
+    },
+  });
 
   async function createTag() {
     if (!draft.name) {
@@ -48,11 +64,7 @@ export function TagsManager() {
       return;
     }
 
-    await api.post('/tags/create', draft);
-    setDraft(emptyDraft);
-    setModalOpen(false);
-    setMessage('Tag criada com sucesso.');
-    await fetchTags();
+    await createTagMutation.mutateAsync(draft);
   }
 
   async function deleteTag(id: number) {
@@ -60,9 +72,7 @@ export function TagsManager() {
       return;
     }
 
-    await api.delete(`/tags/delete?id=${id}`);
-    setMessage('Tag excluída.');
-    await fetchTags();
+    await deleteTagMutation.mutateAsync(id);
   }
 
   return (
@@ -102,7 +112,7 @@ export function TagsManager() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {isLoading ? (
                 <tr>
                   <td className="px-5 py-8 text-slate-400" colSpan={4}>
                     Carregando tags...
@@ -183,9 +193,10 @@ export function TagsManager() {
               <button
                 type="button"
                 onClick={() => void createTag()}
+                disabled={createTagMutation.isPending}
                 className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
               >
-                Salvar
+                {createTagMutation.isPending ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </div>
