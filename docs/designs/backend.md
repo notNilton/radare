@@ -10,7 +10,7 @@ The primary objective of this backend is to receive a set of measurements, their
 
 The backend is structured to separate concerns, promoting maintainability and scalability.
 
--   `main.go`: This is the application's entry point. It is responsible for initializing the HTTP server, configuring routing, and managing graceful shutdowns.
+-   `cmd/api/main.go`: This is the application's entry point. It is responsible for initializing the HTTP server, configuring routing, and managing graceful shutdowns.
 -   `internal/`: This directory houses the core business logic of the application.
     -   `handlers/`: Contains the HTTP request handlers for the API endpoints.
     -   `reconciliation/`: Implements the core logic for the data reconciliation process.
@@ -87,7 +87,7 @@ This endpoint is used to check the health of the server.
 
     ```bash
     git clone https://github.com/your-username/radare-datarecon.git
-    cd radare-datarecon/backend
+    cd radare-datarecon/apps/backend
     ```
 
 2.  **Install dependencies:**
@@ -99,14 +99,14 @@ This endpoint is used to check the health of the server.
 3.  **Run the server:**
 
     ```bash
-    go run main.go
+    go run ./cmd/api
     ```
 
     The server will start on port `8080` by default. You can set the `PORT` environment variable to use a different port.
 
 ## Running Tests
 
-To run the backend's unit tests, navigate to the `backend` directory and execute the following command:
+To run the backend's unit tests, navigate to the `apps/backend` directory and execute the following command:
 
 ```bash
 go test ./...

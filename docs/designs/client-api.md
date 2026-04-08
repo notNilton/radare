@@ -14,7 +14,7 @@ To use this collection, you will need to have the Bruno application installed on
 2.  **Open the Collection**:
     *   Launch the Bruno application.
     *   Click on "Open Collection".
-    *   Navigate to the `apiclient` directory within this project and select it.
+    *   Navigate to the `client-api` directory within this project and select it.
 3.  **Start Making Requests**: Once the collection is loaded, you will see a list of available API requests in the left-hand sidebar.
 
 ## Requests in this Collection

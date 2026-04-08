@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Radare Client API Collection
+  version: 1.0.0
+  description: Executable API contract companion for the Bruno collection in this directory.
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz:
+    get:
+      summary: Health check
+  /api/login:
+    post:
+      summary: Login
+  /api/register:
+    post:
+      summary: Register
+  /api/current-values:
+    get:
+      summary: Current values
+  /api/reconcile:
+    post:
+      summary: Reconcile data

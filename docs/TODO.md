@@ -36,7 +36,7 @@
 
 ## 📄 Documentação
 - [x] **Manutenção**
-    - [x] Atualizar coleção Bruno (`docs/apiclient`).
+    - [x] Atualizar coleção Bruno (`client-api`).
     - [x] README.md com instruções de setup.
 
 ---
@@ -76,4 +76,3 @@
 ### 🧪 Qualidade & E2E
 - [x] **Testes E2E:** Configurar Playwright para validar o fluxo principal (Login -> Reconciliar).
 - [x] **Testes de Integração:** Criar testes de repositório no Go com banco real (testcontainers).
-

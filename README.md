@@ -17,20 +17,23 @@ Radare é uma plataforma web para reconciliação de dados em processos industri
 1. Clone o repositório.
 2. Na raiz do projeto, execute:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
-3. Acesse o frontend em `http://localhost:5173`.
+3. Acesse o webapp em `http://localhost:5173`.
 4. O backend estará disponível em `http://localhost:8080`.
 
 ## 📂 Estrutura do Projeto
 
-- `/backend`: API REST em Go.
-- `/frontend`: Interface do usuário em React.
-- `/docs`: Documentação técnica e planos de desenvolvimento.
+- `/apps/backend`: API REST em Go.
+- `/apps/webapp`: Interface do usuário em React.
+- `/database`: módulo compartilhado de conexão e evolução de banco.
+- `/client-api`: coleção Bruno para smoke tests e validação manual.
+- `/docs`: documentação técnica e planos de desenvolvimento.
 
 ## 📝 Documentação Complementar
 
 - [Planos de Desenvolvimento (TODO)](docs/TODO.md)
-- [Backend README](docs/markdown/README_BACKEND.md)
-- [Frontend README](docs/markdown/README_FRONTEND.md)
-- [API Client (Bruno)](docs/markdown/README_APICLIENT.md)
+- [Backend README](docs/designs/backend.md)
+- [Webapp README](docs/designs/webapp.md)
+- [API Client (Bruno)](docs/designs/client-api.md)
+- [Blueprint de Refatoração](docs/refactors/MONOREPO-REFACTOR.md)
