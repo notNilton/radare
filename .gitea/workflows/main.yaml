@@ -34,23 +34,23 @@ jobs:
           FILES_CHANGED=""
 
           # Backend — sempre bump
-          CURRENT=$(cat backend/VERSION)
+          CURRENT=$(cat apps/backend/VERSION)
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           PATCH=$((PATCH + 1))
           BACKEND_NEW="${MAJOR}.${MINOR}.${PATCH}"
-          echo "$BACKEND_NEW" > backend/VERSION
-          git add backend/VERSION
+          echo "$BACKEND_NEW" > apps/backend/VERSION
+          git add apps/backend/VERSION
           FILES_CHANGED="$FILES_CHANGED backend-v${BACKEND_NEW}"
           echo "BACKEND_VERSION=$BACKEND_NEW" >> $GITHUB_OUTPUT
 
           # Frontend — sempre bump
-          CURRENT=$(jq -r '.version' frontend/package.json)
+          CURRENT=$(jq -r '.version' apps/webapp/package.json)
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           PATCH=$((PATCH + 1))
           FRONTEND_NEW="${MAJOR}.${MINOR}.${PATCH}"
-          jq --arg v "$FRONTEND_NEW" '.version = $v' frontend/package.json > /tmp/pkg.json
-          mv /tmp/pkg.json frontend/package.json
-          git add frontend/package.json
+          jq --arg v "$FRONTEND_NEW" '.version = $v' apps/webapp/package.json > /tmp/pkg.json
+          mv /tmp/pkg.json apps/webapp/package.json
+          git add apps/webapp/package.json
           FILES_CHANGED="$FILES_CHANGED frontend-v${FRONTEND_NEW}"
           echo "FRONTEND_VERSION=$FRONTEND_NEW" >> $GITHUB_OUTPUT
 
@@ -94,12 +94,12 @@ jobs:
           exit 1
 
       - name: Build binary
-        working-directory: backend
+        working-directory: apps/backend
         env:
           GOWORK: "off"
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-            -o main .
+            -o main ./cmd/api
 
       - name: Login to Gitea registry
         run: |
@@ -121,10 +121,10 @@ jobs:
 
       - name: Build and push Backend image
         run: |
-          docker build -f backend/Dockerfile \
+          docker build -f apps/backend/Dockerfile \
             -t ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:latest \
             -t ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:${{ needs.bump-versions.outputs.BACKEND_VERSION }} \
-            .
+            ./apps/backend
           docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:latest
           docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/backend:${{ needs.bump-versions.outputs.BACKEND_VERSION }}
 
@@ -140,7 +140,7 @@ jobs:
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
       - name: Build Frontend
-        working-directory: frontend
+        working-directory: apps/webapp
         run: |
           npm ci --cache .npm-cache
           VITE_API_URL=https://api-radare.nilbyte.com.br \
@@ -167,9 +167,9 @@ jobs:
 
       - name: Build and push Frontend image
         run: |
-          docker build -f frontend/Dockerfile \
+          docker build -f apps/webapp/Dockerfile \
             -t ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:latest \
             -t ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:${{ needs.bump-versions.outputs.FRONTEND_VERSION }} \
-            .
+            ./apps/webapp
           docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:latest
           docker push ${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:${{ needs.bump-versions.outputs.FRONTEND_VERSION }}

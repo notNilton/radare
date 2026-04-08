@@ -1,5 +1,5 @@
 services:
-  database:
+  db:
     image: postgres:16-alpine
     container_name: radare-database
     environment:
@@ -21,19 +21,19 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./apps/backend
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
     container_name: radare-backend
     restart: unless-stopped
     depends_on:
-      database:
+      db:
         condition: service_healthy
     networks:
       - app-network
     environment:
-      - DB_HOST=database
+      - DB_HOST=db
       - DB_PORT=5432
       - DB_USER=radare
       - DB_PASSWORD=radare
@@ -42,13 +42,33 @@ services:
       - JWT_SECRET=radare-super-secret-key-2026
       - PORT=8080
 
-  frontend:
+  migrate:
     build:
-      context: ./frontend
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=radare
+      - DB_PASSWORD=radare
+      - DB_NAME=radare
+      - DB_SSLMODE=disable
+    command: ["up"]
+
+  webapp:
+    build:
+      context: ./apps/webapp
       dockerfile: Dockerfile
     ports:
-      - "5173:5173"
-    container_name: radare-frontend
+      - "5173:80"
+    container_name: radare-webapp
     restart: unless-stopped
     depends_on:
       - backend

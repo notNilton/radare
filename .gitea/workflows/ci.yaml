@@ -33,7 +33,7 @@ jobs:
           exit 1
 
       - name: Build backend
-        working-directory: backend
+        working-directory: apps/backend
         env:
           GOWORK: "off"
         run: go build ./...
@@ -49,7 +49,7 @@ jobs:
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
       - name: Build frontend
-        working-directory: frontend
+        working-directory: apps/webapp
         run: |
           npm ci
           VITE_API_URL=https://api-radare.nilbyte.com.br/api npm run build
@@ -103,19 +103,18 @@ jobs:
 
       - name: Build and push backend image
         run: |
-          docker build -f backend/Dockerfile \
+          docker build -f apps/backend/Dockerfile \
             -t "${{ env.REGISTRY }}/nilbyte-studios/radare/backend:latest" \
             -t "${{ env.REGISTRY }}/nilbyte-studios/radare/backend:${{ env.IMAGE_TAG }}" \
-            .
+            ./apps/backend
           docker push "${{ env.REGISTRY }}/nilbyte-studios/radare/backend:latest"
           docker push "${{ env.REGISTRY }}/nilbyte-studios/radare/backend:${{ env.IMAGE_TAG }}"
 
       - name: Build and push frontend image
         run: |
-          docker build -f frontend/Dockerfile \
+          docker build -f apps/webapp/Dockerfile \
             -t "${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:latest" \
             -t "${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:${{ env.IMAGE_TAG }}" \
-            .
+            ./apps/webapp
           docker push "${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:latest"
           docker push "${{ env.REGISTRY }}/nilbyte-studios/radare/frontend:${{ env.IMAGE_TAG }}"
-
