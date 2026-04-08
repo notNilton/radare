@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/AuthStore";
 import axios from "axios";
+import { API_URL } from "../config/env";
 import "./LoginPage.scss";
 
 const LoginPage: React.FC = () => {
@@ -27,7 +28,7 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:8080/api/login", {
+      const response = await axios.post(`${API_URL}/login`, {
         username,
         password,
       });
@@ -53,7 +54,7 @@ const LoginPage: React.FC = () => {
         <h1>Radare</h1>
         <p>Reconciliação de Dados Técnicos</p>
         
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} data-testid="login-form">
           <div className="form-group">
             <label htmlFor="username">Usuário</label>
             <input

@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/AuthStore';
+import { API_URL } from '../config/env';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: API_URL,
 });
 
 // Request Interceptor: Add JWT token to headers

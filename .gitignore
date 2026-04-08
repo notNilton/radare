@@ -155,6 +155,8 @@ node_modules/
 dist/
 dist-ssr/
 build/
+playwright-report/
+test-results/
 *.tgz
 *.tar.gz
 *.zip

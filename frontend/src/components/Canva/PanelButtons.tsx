@@ -107,11 +107,12 @@ const PanelButtons: React.FC<PanelButtonsProps> = ({
         onClick={handleToggleGraph}
         className="p-button-sm p-button-info"
       />
-           <Button
+      <Button
         label="Reconciliar Dados"
         icon="pi pi-refresh"
         onClick={handleReconcile}
         className="p-button-sm p-button-success"
+        data-testid="reconcile-button"
       />
       <Button
         label="Upload Arquivo"
