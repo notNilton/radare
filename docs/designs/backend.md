@@ -16,7 +16,6 @@ The backend is structured to separate concerns, promoting maintainability and sc
     -   `reconciliation/`: Implements the core logic for the data reconciliation process.
     -   `middleware/`: Provides middleware for logging and error handling.
 -   `go.mod`, `go.sum`: These files manage the project's dependencies.
--   `CHANGELOG.md`: A log of changes to the backend.
 
 ## API Endpoints
 
