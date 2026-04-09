@@ -56,7 +56,7 @@ func main() {
 	}
 
 	// Instantiate the authentication middleware with the JWT secret.
-	authMiddleware := middleware.AuthMiddleware(cfg.JWTSecret)
+	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
 
 	// Register handlers for the API endpoints.
 	// Each handler is wrapped with middleware for logging, error handling, and authentication.

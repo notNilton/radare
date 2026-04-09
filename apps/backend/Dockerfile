@@ -5,7 +5,7 @@ WORKDIR /workspace
 
 # Copy go.mod and go.sum to download dependencies
 COPY apps/backend/go.mod apps/backend/go.sum ./apps/backend/
-COPY database/go.mod ./database/
+COPY database/go.mod database/go.sum ./database/
 
 WORKDIR /workspace/apps/backend
 RUN go mod download
@@ -27,7 +27,7 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the pre-built binary from the builder stage
-COPY --from=builder /app/main .
+COPY --from=builder /workspace/apps/backend/main .
 
 # Expose port 8080 to the outside world
 EXPOSE 8080

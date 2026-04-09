@@ -62,6 +62,26 @@ services:
       - DB_SSLMODE=disable
     command: ["up"]
 
+  seed:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-seed
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=radare
+      - DB_PASSWORD=radare
+      - DB_NAME=radare
+      - DB_SSLMODE=disable
+    command: ["seed"]
+
   webapp:
     build:
       context: ./apps/webapp
