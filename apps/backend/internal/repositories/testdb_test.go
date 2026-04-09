@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	ctx := context.Background()
 	container, err := tcpostgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:18-alpine",
 		tcpostgres.WithDatabase("radare_test"),
 		tcpostgres.WithUsername("radare"),
 		tcpostgres.WithPassword("radare"),

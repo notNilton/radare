@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: radare-database
     environment:
       POSTGRES_DB: radare
@@ -21,8 +21,8 @@ services:
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
     ports:
       - "8080:8080"
     container_name: radare-backend

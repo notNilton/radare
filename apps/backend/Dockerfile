@@ -1,16 +1,22 @@
 # Stage 1: Build the Go application
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
 # Copy go.mod and go.sum to download dependencies
-COPY go.mod go.sum ./
+COPY apps/backend/go.mod apps/backend/go.sum ./apps/backend/
+COPY database/go.mod ./database/
+
+WORKDIR /workspace/apps/backend
 RUN go mod download
 
 # Copy the rest of the application source code
-COPY . .
+WORKDIR /workspace
+COPY apps/backend ./apps/backend
+COPY database ./database
 
 # Build the application
+WORKDIR /workspace/apps/backend
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
 
 # Stage 2: Create a minimal final image
