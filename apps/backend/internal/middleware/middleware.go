@@ -91,6 +91,18 @@ func ErrorHandler(handler AppHandler) http.HandlerFunc {
 	}
 }
 
+// OptionsHandler short-circuits OPTIONS preflight requests with 204.
+// CORS headers are handled by the reverse proxy upstream.
+func OptionsHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // NewAuthMiddleware creates a new authentication middleware with a provided JWT secret.
 // This function acts as a factory, decoupling the middleware from global configuration
 // and making it more modular and testable. The returned middleware validates JWTs
