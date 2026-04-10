@@ -7,6 +7,13 @@ import ErrorBoundary from './components/Common/ErrorBoundary';
 import { queryClient } from './lib/query-client';
 import { router } from './router';
 
+// Apply persisted theme before first render to avoid flash
+const storedTheme = (() => {
+  try { return JSON.parse(localStorage.getItem('theme') || '{}').state?.theme ?? 'dark'; }
+  catch { return 'dark'; }
+})();
+document.documentElement.classList.add(storedTheme);
+
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {

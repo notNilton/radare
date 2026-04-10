@@ -1,31 +1,121 @@
 @import "tailwindcss";
 
-:root {
+/* ─── Dark theme (default) ─────────────────────────────────────────────────── */
+:root,
+.dark {
+  --bg:        #020617;   /* slate-950            */
+  --surface:   #0f172a;   /* slate-900            */
+  --panel:     #1e293b;   /* slate-800            */
+  --border:    rgba(255,255,255,0.09);
+  --border-md: rgba(255,255,255,0.14);
+
+  --tx-1:      #f1f5f9;   /* primary text         */
+  --tx-2:      #94a3b8;   /* secondary text       */
+  --tx-3:      #475569;   /* muted text           */
+
+  --accent:    #22d3ee;   /* cyan-400             */
+  --accent-bg: rgba(34,211,238,0.10);
+  --accent-bd: rgba(34,211,238,0.30);
+
+  --danger:    #f87171;
+  --danger-bg: rgba(248,113,113,0.10);
+
+  --node-src:  rgba(8,  145,178, 0.15);
+  --node-src-b:#0e7490;
+  --node-snk:  rgba(5,  150,105, 0.15);
+  --node-snk-b:#047857;
+  --node-spl:  rgba(168,85, 247, 0.15);
+  --node-spl-b:#7c3aed;
+  --node-mrg:  rgba(217,119,6,  0.15);
+  --node-mrg-b:#b45309;
+  --node-prc:  rgba(51, 65, 85, 0.60);
+  --node-prc-b:#334155;
+
+  --canvas-bg: #020617;
+  --canvas-dot:#1e293b;
+
+  --rf-bg:     #020617;
+
   color-scheme: dark;
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  background: #020617;
-  color: #e2e8f0;
 }
 
-* {
-  box-sizing: border-box;
+/* ─── Light theme — calibrated for matte screens ───────────────────────────
+   Goals: no pure white, warm neutral base to kill glare, ink-like text,
+   industrial blue accent with proper contrast (WCAG AA ≥4.5:1).
+   Base hue: 40° (warm gray) keeps eyes relaxed on diffuse light.          */
+.light {
+  --bg:        #eae8e3;   /* warm off-white, not paper-white              */
+  --surface:   #dedad4;   /* slightly darker — panels lift from bg        */
+  --panel:     #d3cfc8;   /* deeper panel for nested elements             */
+  --border:    rgba(0,0,0,0.10);
+  --border-md: rgba(0,0,0,0.18);
+
+  --tx-1:      #18170f;   /* warm near-black — softer than #000           */
+  --tx-2:      #504c43;   /* secondary — warm slate                       */
+  --tx-3:      #8a8479;   /* muted                                        */
+
+  --accent:    #0369a1;   /* sky-700 — 7:1 on light bg, industrial        */
+  --accent-bg: rgba(3,105,161,0.08);
+  --accent-bd: rgba(3,105,161,0.30);
+
+  --danger:    #b91c1c;
+  --danger-bg: rgba(185,28,28,0.08);
+
+  --node-src:  rgba(2,132,199,0.12);
+  --node-src-b:#0369a1;
+  --node-snk:  rgba(4,120,87, 0.12);
+  --node-snk-b:#047857;
+  --node-spl:  rgba(109,40,217,0.12);
+  --node-spl-b:#6d28d9;
+  --node-mrg:  rgba(180,83, 9, 0.12);
+  --node-mrg-b:#b45309;
+  --node-prc:  rgba(100,92,82,0.10);
+  --node-prc-b:#78716c;
+
+  --canvas-bg: #dedad4;
+  --canvas-dot:#c4bfb7;
+
+  --rf-bg:     #dedad4;
+
+  color-scheme: light;
 }
 
-html,
-body,
-#root {
-  min-height: 100%;
-}
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
 
-body {
+html, body, #root {
+  height: 100%;
   margin: 0;
-  background: #020617;
-  color: #e2e8f0;
+  background: var(--bg);
+  color: var(--tx-1);
+  font-family: "IBM Plex Mono", "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+button, input, select, textarea { font: inherit; }
+
+/* ─── ReactFlow overrides ───────────────────────────────────────────────────── */
+.react-flow__renderer,
+.react-flow__background { background: var(--canvas-bg) !important; }
+
+.react-flow__edge-path,
+.react-flow__edge-interaction { stroke: var(--tx-3) !important; }
+
+.react-flow__edge-text { fill: var(--tx-2) !important; font-size: 10px !important; }
+
+.react-flow__edge-textbg { fill: var(--canvas-bg) !important; }
+
+.react-flow__controls {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+.react-flow__controls-button {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--tx-2) !important;
+  fill: var(--tx-2) !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--panel) !important;
 }
