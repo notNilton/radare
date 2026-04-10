@@ -43,18 +43,18 @@ export function TagsManager() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
     },
     onError: (error) => {
-      setMessage(getErrorMessage(error, 'Nao foi possivel criar a tag.'));
+      setMessage(getErrorMessage(error, 'Não foi possível criar a tag.'));
     },
   });
 
   const deleteTagMutation = useMutation({
     mutationFn: (id: number) => apiClient.delete(`/tags/delete?id=${id}`),
     onSuccess: async () => {
-      setMessage('Tag excluida.');
+      setMessage('Tag excluída.');
       await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
     },
     onError: (error) => {
-      setMessage(getErrorMessage(error, 'Nao foi possivel excluir a tag.'));
+      setMessage(getErrorMessage(error, 'Não foi possível excluir a tag.'));
     },
   });
 
@@ -63,7 +63,6 @@ export function TagsManager() {
       setMessage('Nome da tag é obrigatório.');
       return;
     }
-
     await createTagMutation.mutateAsync(draft);
   }
 
@@ -71,66 +70,127 @@ export function TagsManager() {
     if (!window.confirm('Deseja realmente excluir esta tag?')) {
       return;
     }
-
     await deleteTagMutation.mutateAsync(id);
   }
 
+  // ─── Styles ───────────────────────────────────────────────────────────
+
+  const btnBase: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 14px',
+    fontSize: 11,
+    fontWeight: 500,
+    border: '1px solid var(--border-md)',
+    borderRadius: 3,
+    background: 'transparent',
+    color: 'var(--tx-2)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    transition: 'all 0.15s ease',
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    ...btnBase,
+    border: '1px solid var(--accent-bd)',
+    background: 'var(--accent-bg)',
+    color: 'var(--accent)',
+    fontWeight: 600,
+  };
+
+  const btnDanger: React.CSSProperties = {
+    ...btnBase,
+    border: '1px solid var(--danger-bg)',
+    background: 'var(--danger-bg)',
+    color: 'var(--danger)',
+    padding: '4px 10px',
+  };
+
+  const thStyle: React.CSSProperties = {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    color: 'var(--tx-3)',
+    padding: '12px 20px',
+    textAlign: 'left',
+    borderBottom: '1px solid var(--border)',
+    fontWeight: 600,
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: '12px 20px',
+    fontSize: 12,
+    color: 'var(--tx-1)',
+    borderBottom: '1px solid var(--border)',
+  };
+
   return (
-    <div className="space-y-4">
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur">
+    <div className="p-6 space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Gestão de tags</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Cadastro limpo e rápido das variáveis usadas no processo.
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>GESTÃO DE TAGS</h1>
+          <p className="text-xs" style={{ color: 'var(--tx-2)', marginTop: 4 }}>
+            Cadastro e configuração das variáveis de processo.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+          style={btnPrimary}
         >
-          <Plus className="h-4 w-4" />
-          Nova tag
+          <Plus size={14} />
+          Nova Tag
         </button>
-      </section>
+      </header>
 
-      {message ? (
-        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+      {message && (
+        <div style={{
+          padding: '10px 16px',
+          background: 'var(--accent-bg)',
+          border: '1px solid var(--accent-bd)',
+          borderRadius: 4,
+          fontSize: 11,
+          color: 'var(--accent)'
+        }}>
           {message}
         </div>
-      ) : null}
+      )}
 
-      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-2xl backdrop-blur">
+      <section style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+        overflow: 'hidden'
+      }}>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm text-slate-200">
-            <thead className="border-b border-white/10 text-xs uppercase tracking-[0.2em] text-slate-400">
+          <table className="w-full border-collapse">
+            <thead>
               <tr>
-                <th className="px-5 py-4">Nome</th>
-                <th className="px-5 py-4">Unidade</th>
-                <th className="px-5 py-4">Descrição</th>
-                <th className="px-5 py-4 text-right">Ações</th>
+                <th style={thStyle}>Nome</th>
+                <th style={thStyle}>Unidade</th>
+                <th style={thStyle}>Descrição</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-5 py-8 text-slate-400" colSpan={4}>
-                    Carregando tags...
-                  </td>
+                  <td style={tdStyle} colSpan={4}>Carregando tags...</td>
                 </tr>
               ) : tags.length ? (
                 tags.map((tag) => (
-                  <tr key={tag.ID} className="border-b border-white/5 last:border-b-0">
-                    <td className="px-5 py-4 font-medium text-white">{tag.name}</td>
-                    <td className="px-5 py-4">{tag.unit || '--'}</td>
-                    <td className="px-5 py-4 text-slate-400">{tag.description || '--'}</td>
-                    <td className="px-5 py-4 text-right">
+                  <tr key={tag.ID}>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{tag.name}</td>
+                    <td style={tdStyle}>{tag.unit || '--'}</td>
+                    <td style={{ ...tdStyle, color: 'var(--tx-2)' }}>{tag.description || '--'}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <button
                         type="button"
                         onClick={() => void deleteTag(tag.ID)}
-                        className="inline-flex items-center gap-2 rounded-full border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-xs font-semibold text-rose-100"
+                        style={btnDanger}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 size={12} />
                         Excluir
                       </button>
                     </td>
@@ -138,9 +198,7 @@ export function TagsManager() {
                 ))
               ) : (
                 <tr>
-                  <td className="px-5 py-8 text-slate-400" colSpan={4}>
-                    Nenhuma tag cadastrada.
-                  </td>
+                  <td style={tdStyle} colSpan={4}>Nenhuma tag cadastrada.</td>
                 </tr>
               )}
             </tbody>
@@ -148,17 +206,35 @@ export function TagsManager() {
         </div>
       </section>
 
-      {modalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">Adicionar tag</h2>
+      {modalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)'
+        }} onClick={() => setModalOpen(false)}>
+          <div style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border-md)',
+            borderRadius: 6,
+            padding: '24px',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
+            margin: '0 20px'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx-1)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Adicionar Tag</h2>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="rounded-full border border-white/10 p-2 text-slate-300"
+                style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer' }}
               >
-                <X className="h-4 w-4" />
+                <X size={18} />
               </button>
             </div>
 
@@ -176,17 +252,15 @@ export function TagsManager() {
               <Field
                 label="Descrição"
                 value={draft.description}
-                onChange={(value) =>
-                  setDraft((current) => ({ ...current, description: value }))
-                }
+                onChange={(value) => setDraft((current) => ({ ...current, description: value }))}
               />
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-8 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300"
+                style={btnBase}
               >
                 Cancelar
               </button>
@@ -194,14 +268,14 @@ export function TagsManager() {
                 type="button"
                 onClick={() => void createTag()}
                 disabled={createTagMutation.isPending}
-                className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+                style={btnPrimary}
               >
-                {createTagMutation.isPending ? 'Salvando...' : 'Salvar'}
+                {createTagMutation.isPending ? 'Salvando...' : 'Salvar Tag'}
               </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -217,11 +291,20 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-slate-200">{label}</span>
+      <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--tx-3)', marginBottom: 6, display: 'block' }}>{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          fontSize: 13,
+          background: 'var(--panel)',
+          border: '1px solid var(--border-md)',
+          borderRadius: 4,
+          color: 'var(--tx-1)',
+          outline: 'none'
+        }}
       />
     </label>
   );

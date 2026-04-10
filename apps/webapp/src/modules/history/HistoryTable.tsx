@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Search, SlidersHorizontal } from 'lucide-react';
+import { Download, Search, SlidersHorizontal, X } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
 import { queryKeys } from '../../lib/query-keys';
 
@@ -63,36 +63,106 @@ export function HistoryTable() {
     }
   }
 
+  // ─── Styles ───────────────────────────────────────────────────────────
+
+  const btnBase: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 14px',
+    fontSize: 11,
+    fontWeight: 500,
+    border: '1px solid var(--border-md)',
+    borderRadius: 3,
+    background: 'transparent',
+    color: 'var(--tx-2)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    ...btnBase,
+    border: '1px solid var(--accent-bd)',
+    background: 'var(--accent-bg)',
+    color: 'var(--accent)',
+    fontWeight: 600,
+  };
+
+  const thStyle: React.CSSProperties = {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    color: 'var(--tx-3)',
+    padding: '12px 20px',
+    textAlign: 'left',
+    borderBottom: '1px solid var(--border)',
+    fontWeight: 600,
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: '12px 20px',
+    fontSize: 12,
+    color: 'var(--tx-1)',
+    borderBottom: '1px solid var(--border)',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '8px 12px',
+    fontSize: 12,
+    background: 'var(--panel)',
+    border: '1px solid var(--border-md)',
+    borderRadius: 4,
+    color: 'var(--tx-1)',
+    outline: 'none'
+  };
+
+  const lblStyle: React.CSSProperties = {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    color: 'var(--tx-3)',
+    marginBottom: 6,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  };
+
   return (
-    <div className="space-y-4">
-      <section className="flex flex-wrap items-end justify-between gap-4 rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur">
+    <div className="p-6 space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Histórico de reconciliações</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Filtros por status e janela temporal para auditoria operacional.
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>HISTÓRICO</h1>
+          <p className="text-xs" style={{ color: 'var(--tx-2)', marginTop: 4 }}>
+            Log de auditoria e exportação de resultados anteriores.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void exportCsv()}
           disabled={exporting}
-          className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950"
+          style={{ ...btnPrimary, color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}
         >
-          <Download className="h-4 w-4" />
+          <Download size={14} />
           {exporting ? 'Exportando...' : 'Exportar CSV'}
         </button>
-      </section>
+      </header>
 
-      <section className="grid gap-4 rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl backdrop-blur lg:grid-cols-4">
-        <label className="space-y-2">
-          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400">
-            <SlidersHorizontal className="h-4 w-4" />
-            Status
-          </span>
+      <section style={{
+        padding: '20px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+        display: 'grid',
+        gap: '16px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'
+      }}>
+        <label>
+          <span style={lblStyle}><SlidersHorizontal size={12} /> Status</span>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+            style={inputStyle}
           >
             <option value="">Todos</option>
             <option value="Consistente">Consistente</option>
@@ -100,106 +170,126 @@ export function HistoryTable() {
           </select>
         </label>
 
-        <label className="space-y-2">
-          <span className="text-xs uppercase tracking-[0.2em] text-slate-400">Data inicial</span>
+        <label>
+          <span style={lblStyle}>Data inicial</span>
           <input
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+            style={inputStyle}
           />
         </label>
 
-        <label className="space-y-2">
-          <span className="text-xs uppercase tracking-[0.2em] text-slate-400">Data final</span>
+        <label>
+          <span style={lblStyle}>Data final</span>
           <input
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+            style={inputStyle}
           />
         </label>
 
-        <button
-          type="button"
-          onClick={() => {
-            setStatus('');
-            setStartDate('');
-            setEndDate('');
-            setPage(0);
-          }}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-300 transition hover:text-white"
-        >
-          <Search className="h-4 w-4" />
-          Limpar filtros
-        </button>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={() => {
+              setStatus('');
+              setStartDate('');
+              setEndDate('');
+              setPage(0);
+            }}
+            style={{ ...btnBase, width: '100%', justifyContent: 'center', height: '36px' }}
+          >
+            <X size={14} />
+            Limpar Filtros
+          </button>
+        </div>
       </section>
 
-      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-2xl backdrop-blur">
+      <section style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+        overflow: 'hidden'
+      }}>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm text-slate-200">
-            <thead className="border-b border-white/10 text-xs uppercase tracking-[0.2em] text-slate-400">
+          <table className="w-full border-collapse">
+            <thead>
               <tr>
-                <th className="px-5 py-4">ID</th>
-                <th className="px-5 py-4">Data</th>
-                <th className="px-5 py-4">Status</th>
-                <th className="px-5 py-4">Medições</th>
-                <th className="px-5 py-4">Reconciliados</th>
+                <th style={thStyle}>ID</th>
+                <th style={thStyle}>Data / Hora</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Medições</th>
+                <th style={thStyle}>Reconciliados</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-5 py-8 text-slate-400" colSpan={5}>
-                    Carregando histórico...
-                  </td>
+                  <td style={tdStyle} colSpan={5}>Carregando histórico...</td>
                 </tr>
               ) : items.length ? (
                 items.map((item) => (
-                  <tr key={item.ID} className="border-b border-white/5 last:border-b-0">
-                    <td className="px-5 py-4">{item.ID}</td>
-                    <td className="px-5 py-4">
+                  <tr key={item.ID}>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{item.ID}</td>
+                    <td style={tdStyle}>
                       {item.CreatedAt ? new Date(item.CreatedAt).toLocaleString() : '--'}
                     </td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs">
+                    <td style={tdStyle}>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: 3,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        background: item.consistency_status === 'Consistente' ? 'rgba(16,185,129,0.1)' : 'rgba(248,113,113,0.1)',
+                        color: item.consistency_status === 'Consistente' ? '#10b981' : '#f87171',
+                        border: `1px solid ${item.consistency_status === 'Consistente' ? 'rgba(16,185,129,0.2)' : 'rgba(248,113,113,0.2)'}`
+                      }}>
                         {item.consistency_status}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-xs text-slate-400">
+                    <td style={{ ...tdStyle, fontSize: 10, color: 'var(--tx-2)', fontFamily: 'monospace' }}>
                       {JSON.stringify(item.Measurements ?? [])}
                     </td>
-                    <td className="px-5 py-4 text-xs text-slate-400">
+                    <td style={{ ...tdStyle, fontSize: 10, color: 'var(--tx-2)', fontFamily: 'monospace' }}>
                       {JSON.stringify(item.ReconciledValues ?? [])}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="px-5 py-8 text-slate-400" colSpan={5}>
-                    Nenhum registro encontrado.
-                  </td>
+                  <td style={tdStyle} colSpan={5}>Nenhum registro encontrado.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
 
-        <div className="flex items-center justify-between border-t border-white/10 px-5 py-4 text-sm text-slate-400">
-          <span>Total estimado: {total}</span>
+        <div style={{
+          padding: '12px 20px',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'between',
+          fontSize: 11,
+          color: 'var(--tx-3)'
+        }}>
+          <span className="flex-1">Total de registros: {total}</span>
           <div className="flex gap-2">
             <button
               type="button"
               disabled={page === 0}
               onClick={() => setPage((current) => Math.max(current - 1, 0))}
-              className="rounded-full border border-white/10 px-4 py-2 disabled:opacity-40"
+              style={{ ...btnBase, padding: '4px 10px', opacity: page === 0 ? 0.4 : 1 }}
             >
               Anterior
             </button>
             <button
               type="button"
               onClick={() => setPage((current) => current + 1)}
-              className="rounded-full border border-white/10 px-4 py-2"
+              style={{ ...btnBase, padding: '4px 10px' }}
             >
               Próxima
             </button>

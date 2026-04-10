@@ -44,12 +44,12 @@ export function ProfileSettings() {
   const updateProfileMutation = useMutation({
     mutationFn: (nextUser: UserProfile) => apiClient.put('/profile/update', nextUser),
     onSuccess: async () => {
-      setMessage('Perfil atualizado.');
+      setMessage('Perfil atualizado com sucesso.');
       setProfileError(null);
       await queryClient.invalidateQueries({ queryKey: queryKeys.profile.detail() });
     },
     onError: (error) => {
-      setProfileError(getErrorMessage(error, 'Nao foi possivel atualizar o perfil.'));
+      setProfileError(getErrorMessage(error, 'Não foi possível atualizar o perfil.'));
     },
   });
 
@@ -62,7 +62,7 @@ export function ProfileSettings() {
       setProfileError(null);
     },
     onError: (error) => {
-      setProfileError(getErrorMessage(error, 'Nao foi possivel alterar a senha.'));
+      setProfileError(getErrorMessage(error, 'Não foi possível alterar a senha.'));
     },
   });
 
@@ -76,7 +76,7 @@ export function ProfileSettings() {
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (passwords.next !== passwords.confirm) {
-      setMessage('As senhas não coincidem.');
+      setProfileError('As novas senhas não coincidem.');
       return;
     }
 
@@ -88,31 +88,79 @@ export function ProfileSettings() {
     });
   }
 
-  return (
-    <div className="space-y-4">
-      <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur">
-        <h1 className="text-2xl font-semibold text-white">Meu perfil</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          Dados pessoais e segurança em uma interface mais direta e modular.
-        </p>
-      </section>
+  // ─── Styles ───────────────────────────────────────────────────────────
 
-      {message ? (
-        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+  const btnBase: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 16px',
+    fontSize: 11,
+    fontWeight: 600,
+    border: '1px solid var(--border-md)',
+    borderRadius: 3,
+    background: 'transparent',
+    color: 'var(--tx-2)',
+    cursor: 'pointer',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    ...btnBase,
+    border: '1px solid var(--accent-bd)',
+    background: 'var(--accent-bg)',
+    color: 'var(--accent)',
+  };
+
+  const btnWarning: React.CSSProperties = {
+    ...btnBase,
+    border: '1px solid rgba(245,158,11,0.3)',
+    background: 'rgba(245,158,11,0.1)',
+    color: '#f59e0b',
+  };
+
+  const sectionStyle: React.CSSProperties = {
+    padding: '24px',
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 4,
+  };
+
+  const lblStyle: React.CSSProperties = {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    color: 'var(--tx-3)',
+    marginBottom: 8,
+    display: 'block'
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <header>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>MEU PERFIL</h1>
+        <p className="text-xs" style={{ color: 'var(--tx-2)', marginTop: 4 }}>
+          Gerenciamento de credenciais e informações cadastrais.
+        </p>
+      </header>
+
+      {message && (
+        <div style={{ padding: '10px 16px', background: 'var(--accent-bg)', border: '1px solid var(--accent-bd)', borderRadius: 4, fontSize: 11, color: 'var(--accent)' }}>
           {message}
         </div>
-      ) : null}
+      )}
 
-      {profileError ? (
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+      {profileError && (
+        <div style={{ padding: '10px 16px', background: 'var(--danger-bg)', border: '1px solid var(--border-md)', borderRadius: 4, fontSize: 11, color: 'var(--danger)' }}>
           {profileError}
         </div>
-      ) : null}
+      )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur">
-          <h2 className="text-lg font-semibold text-white">Dados pessoais</h2>
-          <form onSubmit={handleProfileSubmit} className="mt-5 space-y-4">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section style={sectionStyle}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx-1)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>Dados Pessoais</h2>
+          <form onSubmit={handleProfileSubmit} className="space-y-4">
             <ProfileField
               label="Nome completo"
               value={user.name}
@@ -159,19 +207,21 @@ export function ProfileSettings() {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading || updateProfileMutation.isPending}
-              className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
-            >
-              {updateProfileMutation.isPending ? 'Salvando...' : 'Salvar alterações'}
-            </button>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isLoading || updateProfileMutation.isPending}
+                style={btnPrimary}
+              >
+                {updateProfileMutation.isPending ? 'Processando...' : 'Salvar Alterações'}
+              </button>
+            </div>
           </form>
         </section>
 
-        <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur">
-          <h2 className="text-lg font-semibold text-white">Segurança</h2>
-          <form onSubmit={handlePasswordSubmit} className="mt-5 space-y-4">
+        <section style={sectionStyle}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx-1)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>Segurança</h2>
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <ProfileField
               label="Senha atual"
               value={passwords.current}
@@ -197,13 +247,15 @@ export function ProfileSettings() {
               }
             />
 
-            <button
-              type="submit"
-              disabled={updatePasswordMutation.isPending}
-              className="rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100"
-            >
-              {updatePasswordMutation.isPending ? 'Alterando...' : 'Alterar senha'}
-            </button>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={updatePasswordMutation.isPending}
+                style={btnWarning}
+              >
+                {updatePasswordMutation.isPending ? 'Alterando...' : 'Alterar Senha'}
+              </button>
+            </div>
           </form>
         </section>
       </div>
@@ -224,12 +276,21 @@ function ProfileField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-slate-200">{label}</span>
+      <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--tx-3)', marginBottom: 6, display: 'block' }}>{label}</span>
       <input
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          fontSize: 13,
+          background: 'var(--panel)',
+          border: '1px solid var(--border-md)',
+          borderRadius: 4,
+          color: 'var(--tx-1)',
+          outline: 'none'
+        }}
       />
     </label>
   );

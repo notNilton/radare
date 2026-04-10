@@ -14,78 +14,109 @@ const AboutModal: React.FC<AboutModalProps> = ({
     return null;
   }
 
+  const btnBase: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 14px',
+    fontSize: 11,
+    fontWeight: 500,
+    border: '1px solid var(--border-md)',
+    borderRadius: 3,
+    background: 'transparent',
+    color: 'var(--tx-2)',
+    cursor: 'pointer',
+    textDecoration: 'none'
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(4px)'
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="about-modal-title"
+      onClick={toggleAboutPopup}
     >
-      <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/95 p-6 text-slate-100 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-300">
-              <CircleHelp className="h-5 w-5" />
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '500px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border-md)',
+          borderRadius: 6,
+          padding: '32px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          margin: '0 20px'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-8 flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <div style={{ color: 'var(--accent)' }}>
+              <CircleHelp size={24} />
             </div>
             <div>
-              <h2 id="about-modal-title" className="text-xl font-semibold">
-                Sobre
+              <h2 id="about-modal-title" style={{ fontSize: 14, fontWeight: 700, color: 'var(--tx-1)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                Sobre o Radare
               </h2>
-              <p className="text-sm text-slate-400">
-                Reconciliação de dados com foco operacional
+              <p style={{ fontSize: 10, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 4 }}>
+                Infraestrutura de Reconciliação de Dados
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={toggleAboutPopup}
-            className="rounded-full border border-white/10 p-2 text-slate-300 transition hover:border-cyan-400 hover:text-cyan-200"
+            style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer' }}
             aria-label="Fechar modal"
           >
-            <X className="h-5 w-5" />
+            <X size={20} />
           </button>
         </div>
 
-        <div className="space-y-4 text-sm leading-7 text-slate-300">
+        <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--tx-2)', fontFamily: 'monospace' }} className="space-y-6">
           <p>
-            A ferramenta <strong>RADARE</strong> (Reconciliation and Data
-            Analysis in a Responsive Environment) foi criada por Nilton Aguiar
-            dos Santos, com auxílio do Prof. Dr. João Pena, como parte de um
-            projeto de inovação científica para o curso de Engenharia de
-            Computação na Universidade Federal de Mato Grosso, Campus Várzea
-            Grande.
+            O <strong style={{ color: 'var(--tx-1)' }}>RADARE</strong> (Reconciliation and Data
+            Analysis in a Responsive Environment) é um projeto acadêmico focado em integridade de dados operacionais.
           </p>
           <p>
-            O sistema combina TypeScript, React e React Flow no frontend com
-            um backend em Go para apoiar modelagem de fluxos, reconciliação e
-            análise operacional de dados técnicos.
+            Desenvolvido por Nilton Aguiar dos Santos sob orientação do Prof. Dr. João Pena na UFMT, o sistema emprega Go e React Flow para modelagem de balanços de massa e consistência estatística.
           </p>
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-10 flex flex-wrap gap-3 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
           <a
             href="https://github.com/notNilton"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-100"
+            style={btnBase}
           >
-            <Github className="h-4 w-4" />
+            <Github size={14} />
             GitHub
           </a>
           <a
             href="https://linkedin.com/in/notNilton"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-100"
+            style={btnBase}
           >
-            <Linkedin className="h-4 w-4" />
+            <Linkedin size={14} />
             LinkedIn
           </a>
           <a
             href="mailto:nilton.naab@gmail.com"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-100"
+            style={btnBase}
           >
-            <Mail className="h-4 w-4" />
+            <Mail size={14} />
             Email
           </a>
         </div>

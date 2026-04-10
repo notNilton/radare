@@ -46,55 +46,81 @@ export function DashboardOverview() {
 
   const cards = [
     {
-      label: 'Reconciliações',
+      label: 'RECONCILIAÇÕES',
       value: isLoading ? '...' : String(stats?.total_reconciliations ?? 0),
       icon: DatabaseZap,
-      tone: 'text-cyan-200',
+      tone: 'var(--accent)',
     },
     {
-      label: 'Consistência',
+      label: 'CONSISTÊNCIA',
       value: isLoading
         ? '...'
         : `${(stats?.consistent_percentage ?? 0).toFixed(1)}%`,
       icon: BarChart3,
-      tone: 'text-emerald-200',
+      tone: '#10b981', // emerald-500
     },
     {
-      label: 'Tags',
+      label: 'TAGS',
       value: isLoading ? '...' : String(stats?.total_tags ?? 0),
       icon: Tags,
-      tone: 'text-amber-200',
+      tone: '#f59e0b', // amber-500
     },
     {
-      label: 'Processo ao vivo',
+      label: 'PROCESSO AO VIVO',
       value: liveValues ? `${liveValues.value1} / ${liveValues.value2}` : '-- / --',
       icon: Activity,
-      tone: 'text-fuchsia-200',
+      tone: '#d946ef', // fuchsia-500
     },
   ];
 
+  const lblStyle: React.CSSProperties = {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    color: 'var(--tx-3)',
+    marginBottom: 8
+  };
+
   return (
-    <div className="space-y-4">
-      <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl backdrop-blur">
-        <h1 className="text-2xl font-semibold text-white">Dashboard de operação</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Visão consolidada da saúde do processo, total de reconciliações executadas e dados em tempo real.
+    <div className="p-6 space-y-6">
+      <header>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>DASHBOARD DE OPERAÇÃO</h1>
+        <p className="text-xs" style={{ color: 'var(--tx-2)', marginTop: 4 }}>
+          Monitoramento consolidado e métricas em tempo real do processo de reconciliação.
         </p>
-      </section>
+      </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <article
             key={card.label}
-            className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl backdrop-blur"
+            style={{
+              padding: '24px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+            }}
           >
-            <div className={`inline-flex rounded-2xl bg-white/5 p-3 ${card.tone}`}>
-              <card.icon className="h-5 w-5" />
+            <div style={lblStyle}>{card.label}</div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-3xl font-bold tabular-nums" style={{ color: 'var(--tx-1)' }}>{card.value}</span>
+              <card.icon size={18} style={{ color: card.tone, opacity: 0.8 }} />
             </div>
-            <p className="mt-5 text-sm text-slate-400">{card.label}</p>
-            <p className="mt-2 text-3xl font-semibold text-white">{card.value}</p>
           </article>
         ))}
+      </section>
+
+      <section style={{
+        padding: '24px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+      }}>
+        <div style={lblStyle}>STATUS DO SISTEMA</div>
+        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--tx-2)' }}>
+          <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: '#10b981' }} />
+          <span>Backend operacional via {socketUrl}</span>
+        </div>
       </section>
     </div>
   );

@@ -41,33 +41,91 @@ export function LoginForm() {
     }
   }
 
-  return (
-    <div className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.22),_transparent_28%),linear-gradient(180deg,_#020617,_#0f172a_55%,_#111827)] px-4 py-10">
-      <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl backdrop-blur-xl">
-        <div className="mb-8">
-          <span className="mb-3 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-            RADARE
-          </span>
-          <h1 className="text-3xl font-semibold text-white">
-            Acesse o workspace
-          </h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Entre para gerenciar reconciliações, histórico e configuração do processo.
-          </p>
-        </div>
+  // ─── Styles ───────────────────────────────────────────────────────────
 
-        <form onSubmit={handleSubmit} data-testid="login-form" className="space-y-5">
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 14px',
+    fontSize: 13,
+    background: 'var(--panel)',
+    border: '1px solid var(--border-md)',
+    borderRadius: 3,
+    color: 'var(--tx-1)',
+    outline: 'none',
+    transition: 'border-color 0.2s ease',
+  };
+
+  const lblStyle: React.CSSProperties = {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    color: 'var(--tx-3)',
+    marginBottom: 8,
+    display: 'block'
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    width: '100%',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '12px 20px',
+    fontSize: 12,
+    fontWeight: 700,
+    border: '1px solid var(--accent-bd)',
+    borderRadius: 3,
+    background: 'var(--accent-bg)',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    marginTop: '10px'
+  };
+
+  return (
+    <div className="grid min-h-screen place-items-center px-4 py-10" style={{ background: 'var(--bg)' }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '400px',
+        padding: '40px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+        boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+      }}>
+        <header className="mb-10 text-center">
+          <div style={{
+            display: 'inline-block',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.4em',
+            color: 'var(--accent)',
+            border: '1px solid var(--accent-bd)',
+            padding: '4px 12px',
+            borderRadius: 2,
+            marginBottom: '24px'
+          }}>
+            RADARE
+          </div>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>ACESSAR SISTEMA</h1>
+          <p className="mt-3 text-xs" style={{ color: 'var(--tx-2)' }}>
+            Autenticação necessária para acesso operacional.
+          </p>
+        </header>
+
+        <form onSubmit={handleSubmit} data-testid="login-form" className="space-y-6">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-200">Usuário</span>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-cyan-400/70">
-              <User className="h-4 w-4 text-slate-400" />
+            <span style={lblStyle}>Usuário</span>
+            <div className="relative">
+              <User size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
               <input
-                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                style={{ ...inputStyle, paddingLeft: '36px' }}
                 id="username"
                 type="text"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="operator"
+                placeholder="operador"
                 disabled={loginMutation.isPending}
                 required
               />
@@ -75,11 +133,11 @@ export function LoginForm() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-200">Senha</span>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-cyan-400/70">
-              <LockKeyhole className="h-4 w-4 text-slate-400" />
+            <span style={lblStyle}>Senha</span>
+            <div className="relative">
+              <LockKeyhole size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
               <input
-                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                style={{ ...inputStyle, paddingLeft: '36px' }}
                 id="password"
                 type="password"
                 value={password}
@@ -91,21 +149,34 @@ export function LoginForm() {
             </div>
           </label>
 
-          {error ? (
-            <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+          {error && (
+            <div style={{
+              padding: '10px 14px',
+              fontSize: 11,
+              background: 'var(--danger-bg)',
+              border: '1px solid var(--border-md)',
+              borderRadius: 3,
+              color: 'var(--danger)'
+            }}>
               {error}
             </div>
-          ) : null}
+          )}
 
           <button
             type="submit"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            style={btnPrimary}
             disabled={loginMutation.isPending}
           >
-            {loginMutation.isPending ? 'Entrando...' : 'Entrar'}
-            <ArrowRight className="h-4 w-4" />
+            {loginMutation.isPending ? 'Validando...' : 'Autenticar'}
+            <ArrowRight size={16} />
           </button>
         </form>
+
+        <footer className="mt-10 text-center">
+          <p style={{ fontSize: 9, color: 'var(--tx-3)', letterSpacing: '0.05em' }}>
+            &copy; {new Date().getFullYear()} NILBYTE STUDIOS • SISTEMA DE RECONCILIAÇÃO
+          </p>
+        </footer>
       </div>
     </div>
   );
