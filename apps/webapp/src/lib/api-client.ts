@@ -22,7 +22,9 @@ export class ApiError extends Error {
 }
 
 function buildUrl(path: string) {
-  return new URL(path.replace(/^\//, ''), `${API_URL.replace(/\/$/, '')}/`).toString();
+  const base = API_URL.replace(/\/$/, '');
+  const segment = path.replace(/^\//, '');
+  return `${base}/${segment}`;
 }
 
 function extractMessage(payload: unknown, fallback: string) {
