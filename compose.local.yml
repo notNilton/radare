@@ -1,0 +1,67 @@
+name: radare-local
+
+services:
+  db:
+    image: docker.io/library/postgres:18-alpine
+    container_name: radare-database-local
+    userns_mode: keep-id
+    environment:
+      POSTGRES_DB: ${DB_NAME:-radare}
+      POSTGRES_USER: ${DB_USER:-radare}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-radare}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data:Z
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-radare} -d ${DB_NAME:-radare}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  migrate:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-migrate-local
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    network_mode: "host"
+    environment:
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-radare}
+      DB_PASSWORD: ${DB_PASSWORD:-radare}
+      DB_NAME: ${DB_NAME:-radare}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+    command: ["up"]
+
+  seed:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-seed-local
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    network_mode: "host"
+    environment:
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-radare}
+      DB_PASSWORD: ${DB_PASSWORD:-radare}
+      DB_NAME: ${DB_NAME:-radare}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+    command: ["seed"]
+
+volumes:
+  postgres_data_local:
+    driver: local

@@ -1,0 +1,113 @@
+name: radare
+
+services:
+  db:
+    image: docker.io/library/postgres:18-alpine
+    container_name: radare-database
+    userns_mode: keep-id
+    environment:
+      POSTGRES_DB: ${DB_NAME:-radare}
+      POSTGRES_USER: ${DB_USER:-radare}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-radare}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:Z
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-radare} -d ${DB_NAME:-radare}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  migrate:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-migrate
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-radare}
+      DB_PASSWORD: ${DB_PASSWORD:-radare}
+      DB_NAME: ${DB_NAME:-radare}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+    command: ["up"]
+
+  seed:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-seed
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-radare}
+      DB_PASSWORD: ${DB_PASSWORD:-radare}
+      DB_NAME: ${DB_NAME:-radare}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+    command: ["seed"]
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
+    container_name: radare-backend
+    userns_mode: keep-id
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-radare}
+      DB_PASSWORD: ${DB_PASSWORD:-radare}
+      DB_NAME: ${DB_NAME:-radare}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      PORT: ${PORT:-8080}
+
+  webapp:
+    build:
+      context: ./apps/webapp
+      dockerfile: Dockerfile
+    container_name: radare-webapp
+    userns_mode: keep-id
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
