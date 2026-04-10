@@ -16,6 +16,7 @@ import {
   ReactFlowInstance,
   useEdgesState,
   useNodesState,
+  useStore,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Download, Play } from 'lucide-react';
@@ -24,12 +25,8 @@ import { saveReconciliationEntry } from '../../lib/reconciliation-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type FlowNodeVariant = 'source' | 'process' | 'split' | 'merge' | 'sink';
-
 interface FlowNodeData {
   label: string;
-  variant: FlowNodeVariant;
-  processNode: boolean;
 }
 
 interface FlowEdgeData {
@@ -40,10 +37,10 @@ interface FlowEdgeData {
 
 interface PendingConn {
   sourceId: string;
-  sx: number; // screen x of source node center
-  sy: number; // screen y of source node center
-  mx: number; // current mouse x
-  my: number; // current mouse y
+  sx: number;
+  sy: number;
+  mx: number;
+  my: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,78 +54,140 @@ function generateEdgeName() {
   return names[Math.floor(Math.random() * names.length)];
 }
 
-function createNode(id: string, variant: FlowNodeVariant, x: number, y: number): Node<FlowNodeData> {
-  return {
-    id, type: 'process-node', position: { x, y },
-    data: {
-      label:
-        variant === 'source' ? 'Input'
-        : variant === 'sink'  ? 'Output'
-        : variant === 'split' ? 'Split'
-        : variant === 'merge' ? 'Merge'
-        : 'Processo',
-      variant,
-      processNode: variant === 'process' || variant === 'split' || variant === 'merge',
-    },
-  };
+function calcHandleTop(i: number, total: number): string {
+  return `${((i + 1) / (total + 1)) * 100}%`;
 }
 
-// ─── Initial state ────────────────────────────────────────────────────────────
-
-const initialNodes: Node<FlowNodeData>[] = [
-  createNode('source-1', 'source', 80, 120),
-  createNode('process-1', 'process', 360, 120),
-  createNode('sink-1', 'sink', 680, 120),
-];
-
-const initialEdges: Edge<FlowEdgeData>[] = [
-  { id: 'edge-1', source: 'source-1', target: 'process-1', markerEnd: { type: MarkerType.ArrowClosed }, type: 'smoothstep', data: { name: 'Alucard', value: 161, tolerance: 0.05 }, label: 'Alucard • 161 ± 0.05' },
-  { id: 'edge-2', source: 'process-1', target: 'sink-1',   markerEnd: { type: MarkerType.ArrowClosed }, type: 'smoothstep', data: { name: 'Laravel', value: 79,  tolerance: 0.01 }, label: 'Laravel • 79 ± 0.01'   },
-];
-
-const NODE_COLORS: Record<FlowNodeVariant, { bg: string; border: string }> = {
-  source:  { bg: 'var(--node-src)', border: 'var(--node-src-b)' },
-  sink:    { bg: 'var(--node-snk)', border: 'var(--node-snk-b)' },
-  split:   { bg: 'var(--node-spl)', border: 'var(--node-spl-b)' },
-  merge:   { bg: 'var(--node-mrg)', border: 'var(--node-mrg-b)' },
-  process: { bg: 'var(--node-prc)', border: 'var(--node-prc-b)' },
-};
-
 // ─── Node component ───────────────────────────────────────────────────────────
+// Role and handle count are derived live from the edge store — no variant stored.
 
-function FlowProcessNode({ data }: NodeProps<FlowNodeData>) {
-  const c = NODE_COLORS[data.variant];
-  const dot = (type: 'source' | 'target', pos: Position, id?: string) => (
-    <Handle type={type} position={pos} id={id}
-      style={{ width: 7, height: 7, background: type === 'source' ? 'var(--accent)' : 'var(--tx-3)', border: '1px solid var(--border-md)' }} />
-  );
+function FlowNode({ id, data }: NodeProps<FlowNodeData>) {
+  const inEdges  = useStore(useCallback((s) => s.edges.filter((e) => e.target === id), [id]));
+  const outEdges = useStore(useCallback((s) => s.edges.filter((e) => e.source === id), [id]));
+
+  const inCount  = inEdges.length;
+  const outCount = outEdges.length;
+
+  const role =
+    inCount === 0 && outCount === 0 ? 'isolado'
+    : inCount === 0                 ? 'entrada'
+    : outCount === 0                ? 'saída'
+    :                                 'processo';
+
+  const color = {
+    isolado:  { bg: 'var(--node-prc)', border: 'var(--node-prc-b)' },
+    entrada:  { bg: 'var(--node-src)', border: 'var(--node-src-b)' },
+    saída:    { bg: 'var(--node-snk)', border: 'var(--node-snk-b)' },
+    processo: { bg: 'var(--node-mrg)', border: 'var(--node-mrg-b)' },
+  }[role];
+
+  const dotStyle: React.CSSProperties = {
+    width: 7, height: 7,
+    border: '1px solid var(--border-md)',
+    borderRadius: '50%',
+  };
+
+  // Determine how many handles to show each side.
+  // Always at least 1 so the node is connectable via native ReactFlow drag.
+  const inSlots  = Math.max(1, inCount);
+  const outSlots = Math.max(1, outCount);
+
   return (
-    <div style={{ background: c.bg, border: `1px solid ${c.border}`, color: 'var(--tx-1)', minWidth: 120, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
-      {data.variant !== 'source'                       && dot('target', Position.Left)}
-      {data.variant === 'merge'                        && dot('target', Position.Top, 'upper-in')}
-      <div style={{ fontSize: 9, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>{data.variant}</div>
+    <div
+      style={{
+        background: color.bg,
+        border: `1px solid ${color.border}`,
+        borderRadius: 4,
+        minWidth: 120,
+        padding: '10px 14px',
+        textAlign: 'center',
+        position: 'relative',
+      }}
+    >
+      {/* Target handles — left side */}
+      {Array.from({ length: inSlots }, (_, i) => {
+        const edgeForSlot = inEdges[i];
+        return (
+          <Handle
+            key={`t-${i}`}
+            id={edgeForSlot?.targetHandle ?? `t-${i}`}
+            type="target"
+            position={Position.Left}
+            style={{
+              ...dotStyle,
+              top: calcHandleTop(i, inSlots),
+              background: inCount > 0 ? 'var(--tx-3)' : 'transparent',
+              borderStyle: inCount === 0 ? 'dashed' : 'solid',
+            }}
+          />
+        );
+      })}
+
+      <div style={{ fontSize: 9, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+        {role}
+      </div>
       <div style={{ fontSize: 11, marginTop: 3, color: 'var(--tx-1)' }}>{data.label}</div>
-      {data.variant !== 'split' && data.variant !== 'sink' && dot('source', Position.Right)}
-      {data.variant === 'split' && <>{dot('source', Position.Top, 'upper-out')}{dot('source', Position.Bottom, 'lower-out')}</>}
+
+      {/* Source handles — right side */}
+      {Array.from({ length: outSlots }, (_, i) => {
+        const edgeForSlot = outEdges[i];
+        return (
+          <Handle
+            key={`s-${i}`}
+            id={edgeForSlot?.sourceHandle ?? `s-${i}`}
+            type="source"
+            position={Position.Right}
+            style={{
+              ...dotStyle,
+              top: calcHandleTop(i, outSlots),
+              background: outCount > 0 ? 'var(--accent)' : 'transparent',
+              borderStyle: outCount === 0 ? 'dashed' : 'solid',
+              borderColor: outCount === 0 ? 'var(--accent)' : 'var(--border-md)',
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-const nodeTypes = { 'process-node': FlowProcessNode };
+const nodeTypes = { node: FlowNode };
 
-// ─── Context menu (pane right-click) ─────────────────────────────────────────
+// ─── Initial state ────────────────────────────────────────────────────────────
 
-interface CtxMenu { x: number; y: number; flowX: number; flowY: number }
+let _nodeSeq = 3;
+function nextNodeId() { return `node-${++_nodeSeq}`; }
 
-const NODE_VARIANTS: { variant: FlowNodeVariant; label: string; hint: string }[] = [
-  { variant: 'source',  label: 'Input',    hint: 'Entrada de corrente' },
-  { variant: 'process', label: 'Processo', hint: 'Nó de processo'      },
-  { variant: 'split',   label: 'Split',    hint: 'Divisão de corrente' },
-  { variant: 'merge',   label: 'Merge',    hint: 'Junção de correntes' },
-  { variant: 'sink',    label: 'Output',   hint: 'Saída de corrente'   },
+function makeNode(id: string, x: number, y: number, label?: string): Node<FlowNodeData> {
+  return { id, type: 'node', position: { x, y }, data: { label: label ?? `Nó ${id.split('-')[1]}` } };
+}
+
+const initialNodes: Node<FlowNodeData>[] = [
+  makeNode('node-1', 80,  120, 'Entrada'),
+  makeNode('node-2', 360, 120, 'Processo'),
+  makeNode('node-3', 680, 120, 'Saída'),
 ];
 
-function ContextMenu({ x, y, onSelect, onClose }: { x: number; y: number; onSelect: (v: FlowNodeVariant) => void; onClose: () => void }) {
+const initialEdges: Edge<FlowEdgeData>[] = [
+  {
+    id: 'edge-1', source: 'node-1', target: 'node-2',
+    sourceHandle: 's-0', targetHandle: 't-0',
+    markerEnd: { type: MarkerType.ArrowClosed }, type: 'smoothstep',
+    data: { name: 'Alucard', value: 161, tolerance: 0.05 },
+    label: 'Alucard • 161 ± 0.05',
+  },
+  {
+    id: 'edge-2', source: 'node-2', target: 'node-3',
+    sourceHandle: 's-0', targetHandle: 't-0',
+    markerEnd: { type: MarkerType.ArrowClosed }, type: 'smoothstep',
+    data: { name: 'Laravel', value: 79, tolerance: 0.01 },
+    label: 'Laravel • 79 ± 0.01',
+  },
+];
+
+// ─── Context menus ────────────────────────────────────────────────────────────
+
+function PaneMenu({ x, y, onAdd, onClose }: { x: number; y: number; onAdd: () => void; onClose: () => void }) {
   useEffect(() => {
     const click = () => onClose();
     const key   = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -138,26 +197,81 @@ function ContextMenu({ x, y, onSelect, onClose }: { x: number; y: number; onSele
   }, [onClose]);
 
   return (
-    <div style={{ position: 'fixed', top: y, left: x, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border-md)', borderRadius: 4, padding: 4, minWidth: 148, boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }} onClick={(e) => e.stopPropagation()}>
-      <div style={{ fontSize: 9, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.14em', padding: '4px 8px 6px' }}>Adicionar nó</div>
-      {NODE_VARIANTS.map(({ variant, label, hint }) => (
-        <button key={variant} type="button"
-          onClick={() => { onSelect(variant); onClose(); }}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', padding: '6px 8px', background: 'transparent', border: 'none', borderRadius: 3, cursor: 'pointer' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--panel)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx-1)' }}>{label}</span>
-          <span style={{ fontSize: 10, color: 'var(--tx-3)' }}>{hint}</span>
-        </button>
-      ))}
+    <div
+      style={{ position: 'fixed', top: y, left: x, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border-md)', borderRadius: 4, padding: 4, minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <MenuItem label="Adicionar nó" onClick={() => { onAdd(); onClose(); }} />
     </div>
+  );
+}
+
+function NodeMenu({ x, y, onRename, onDelete, onClose }: { x: number; y: number; onRename: () => void; onDelete: () => void; onClose: () => void }) {
+  useEffect(() => {
+    const click = () => onClose();
+    const key   = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('click', click);
+    window.addEventListener('keydown', key);
+    return () => { window.removeEventListener('click', click); window.removeEventListener('keydown', key); };
+  }, [onClose]);
+
+  return (
+    <div
+      style={{ position: 'fixed', top: y, left: x, zIndex: 1000, background: 'var(--surface)', border: '1px solid var(--border-md)', borderRadius: 4, padding: 4, minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <MenuItem label="Renomear" onClick={() => { onRename(); onClose(); }} />
+      <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+      <MenuItem label="Deletar" onClick={() => { onDelete(); onClose(); }} danger />
+    </div>
+  );
+}
+
+function MenuItem({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button" onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'block', width: '100%', padding: '6px 10px', background: hovered ? 'var(--panel)' : 'transparent',
+        border: 'none', borderRadius: 3, cursor: 'pointer', textAlign: 'left',
+        fontSize: 11, fontWeight: 500, color: danger ? 'var(--danger)' : 'var(--tx-1)',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─── Ghost wire ───────────────────────────────────────────────────────────────
+
+function GhostWire({ conn }: { conn: PendingConn }) {
+  const dx = conn.mx - conn.sx;
+  const cx = dx / 2;
+  const d  = `M ${conn.sx} ${conn.sy} C ${conn.sx + Math.abs(cx)} ${conn.sy}, ${conn.mx - Math.abs(cx)} ${conn.my}, ${conn.mx} ${conn.my}`;
+  return (
+    <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 999 }}>
+      <defs>
+        <marker id="ghost-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)" opacity="0.7" />
+        </marker>
+      </defs>
+      <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" strokeDasharray="6 4" opacity="0.7" markerEnd="url(#ghost-arrow)" />
+      <circle cx={conn.sx} cy={conn.sy} r="4" fill="var(--accent)" opacity="0.8" />
+    </svg>
   );
 }
 
 // ─── Edge modal ───────────────────────────────────────────────────────────────
 
-interface EdgeModalState { params: Edge | Connection; name: string; value: string; tolerance: string }
+interface EdgeModalState {
+  params: Edge | Connection;
+  name: string;
+  value: string;
+  tolerance: string;
+}
 
 function EdgeModal({ state, onChange, onConfirm, onCancel }: {
   state: EdgeModalState;
@@ -165,19 +279,19 @@ function EdgeModal({ state, onChange, onConfirm, onCancel }: {
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Enter') onConfirm(); if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onConfirm, onCancel]);
+
   const inp: React.CSSProperties = { width: '100%', padding: '6px 8px', fontSize: 12, background: 'var(--panel)', border: '1px solid var(--border-md)', borderRadius: 3, color: 'var(--tx-1)', outline: 'none' };
   const lbl: React.CSSProperties = { display: 'block', fontSize: 10, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 };
-
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === 'Enter') onConfirm(); if (e.key === 'Escape') onCancel(); };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [onConfirm, onCancel]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }} onClick={onCancel}>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border-md)', borderRadius: 6, padding: '20px 22px', width: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.45)' }} onClick={(e) => e.stopPropagation()}>
-        <p style={{ margin: '0 0 16px', fontSize: 12, fontWeight: 600, color: 'var(--tx-1)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Nova corrente</p>
+        <p style={{ margin: '0 0 16px', fontSize: 12, fontWeight: 600, color: 'var(--tx-1)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Corrente</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <label><span style={lbl}>Nome</span><input style={inp} value={state.name} onChange={(e) => onChange({ name: e.target.value })} autoFocus /></label>
           <label><span style={lbl}>Valor</span><input style={inp} type="number" value={state.value} onChange={(e) => onChange({ value: e.target.value })} /></label>
@@ -192,26 +306,6 @@ function EdgeModal({ state, onChange, onConfirm, onCancel }: {
   );
 }
 
-// ─── Ghost wire (pending connection line) ────────────────────────────────────
-
-function GhostWire({ conn }: { conn: PendingConn }) {
-  const dx = conn.mx - conn.sx;
-  const cx = dx / 2;
-  // cubic bezier: from source going right, to mouse going left
-  const d = `M ${conn.sx} ${conn.sy} C ${conn.sx + Math.abs(cx)} ${conn.sy}, ${conn.mx - Math.abs(cx)} ${conn.my}, ${conn.mx} ${conn.my}`;
-  return (
-    <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 999 }}>
-      <defs>
-        <marker id="ghost-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)" opacity="0.7" />
-        </marker>
-      </defs>
-      <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" strokeDasharray="6 4" opacity="0.7" markerEnd="url(#ghost-arrow)" />
-      <circle cx={conn.sx} cy={conn.sy} r="4" fill="var(--accent)" opacity="0.8" />
-    </svg>
-  );
-}
-
 // ─── Main canvas ──────────────────────────────────────────────────────────────
 
 export function ReconciliationCanvas() {
@@ -220,73 +314,19 @@ export function ReconciliationCanvas() {
   const [status, setStatus]               = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [summaryVisible, setSummaryVisible] = useState(true);
-  const [ctxMenu, setCtxMenu]               = useState<CtxMenu | null>(null);
   const [edgeModal, setEdgeModal]           = useState<EdgeModalState | null>(null);
   const [pendingConn, setPendingConn]       = useState<PendingConn | null>(null);
-  const fileRef    = useRef<HTMLInputElement | null>(null);
-  const rfInstance = useRef<ReactFlowInstance | null>(null);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [paneMenu, setPaneMenu]             = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
+  const [nodeMenu, setNodeMenu]             = useState<{ x: number; y: number; nodeId: string } | null>(null);
 
-  // ref to track which node the mouse is currently hovering
-  const hoveredNodeId = useRef<string | null>(null);
-  // ref to suppress the contextmenu event that fires after right-click mouseup
+  const fileRef      = useRef<HTMLInputElement | null>(null);
+  const rfInstance   = useRef<ReactFlowInstance | null>(null);
+  const wrapperRef   = useRef<HTMLDivElement | null>(null);
+  const hoveredNodeId   = useRef<string | null>(null);
   const suppressNextCtx = useRef(false);
 
-  // track mouse while a pending connection is active
-  useEffect(() => {
-    if (!pendingConn) return;
-    const move = (e: MouseEvent) => {
-      setPendingConn((p) => p ? { ...p, mx: e.clientX, my: e.clientY } : null);
-    };
-    // right-click release → complete or cancel
-    const up = (e: MouseEvent) => {
-      if (e.button !== 2) return;
-      suppressNextCtx.current = true; // suppress the contextmenu event that follows
-      const targetId = hoveredNodeId.current;
-      if (targetId && targetId !== pendingConn.sourceId) {
-        const params: Connection = { source: pendingConn.sourceId, target: targetId, sourceHandle: null, targetHandle: null };
-        setEdgeModal({ params, name: generateEdgeName(), value: '100', tolerance: '0.05' });
-      }
-      setPendingConn(null);
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
-  }, [pendingConn]);
-
-  // Escape cancels pending connection
-  useEffect(() => {
-    if (!pendingConn) return;
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setPendingConn(null); };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [pendingConn]);
-
-  const reconcileMutation = useMutation({
-    mutationFn: (payload: { constraints: number[][]; measurements: number[]; tolerances: number[] }) =>
-      apiClient.post<{ reconciled_values: number[]; corrections: number[]; consistency_status: string }>('/reconcile', payload),
-  });
-
-  const edgeNames = useMemo(() => edges.map((e) => e.data?.name ?? e.id), [edges]);
-
-  const createAdjacencyMatrix = useCallback(() => {
-    const pnodes = nodes.filter((n) => n.data.processNode);
-    const matrix = Array.from({ length: pnodes.length }, () => Array(edges.length).fill(0));
-    edges.forEach((edge, ei) => {
-      const si = pnodes.findIndex((n) => n.id === edge.source);
-      const ti = pnodes.findIndex((n) => n.id === edge.target);
-      if (si !== -1) matrix[si][ei] = -1;
-      if (ti !== -1) matrix[ti][ei] = 1;
-    });
-    return matrix;
-  }, [edges, nodes]);
-
-  // normal handle-drag connection → modal
-  const onConnect = useCallback((params: Edge | Connection) => {
-    setEdgeModal({ params, name: generateEdgeName(), value: '100', tolerance: '0.05' });
-  }, []);
-
-  // native mousedown on the wrapper — intercepts right-click on any ReactFlow node
+  // ─── Right-click mousedown on node → always start connection ─────────────
+  // Wire starts from the closest source handle (or right edge as fallback).
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -297,28 +337,133 @@ export function ReconciliationCanvas() {
       const nodeId = nodeEl.dataset.id;
       if (!nodeId || !rfInstance.current) return;
       e.preventDefault();
-      const rfNode = rfInstance.current.getNode(nodeId);
-      if (!rfNode) return;
-      const screenPos = rfInstance.current.flowToScreenPosition({
-        x: rfNode.position.x + 60,
-        y: rfNode.position.y + 22,
-      });
-      setPendingConn({ sourceId: nodeId, sx: screenPos.x, sy: screenPos.y, mx: e.clientX, my: e.clientY });
+
+      // Find the source handle closest to the mouse Y
+      const sourceHandles = Array.from(nodeEl.querySelectorAll<HTMLElement>('.react-flow__handle-source'));
+      let sx: number, sy: number;
+      if (sourceHandles.length > 0) {
+        const best = sourceHandles.reduce((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const ca = ra.top + ra.height / 2;
+          const cb = rb.top + rb.height / 2;
+          return Math.abs(ca - e.clientY) < Math.abs(cb - e.clientY) ? a : b;
+        });
+        const r = best.getBoundingClientRect();
+        sx = r.left + r.width / 2;
+        sy = r.top  + r.height / 2;
+      } else {
+        // fallback: right edge of node
+        const r = nodeEl.getBoundingClientRect();
+        sx = r.right;
+        sy = r.top + r.height / 2;
+      }
+
+      setPendingConn({ sourceId: nodeId, sx, sy, mx: e.clientX, my: e.clientY });
     };
     el.addEventListener('mousedown', down);
     return () => el.removeEventListener('mousedown', down);
   }, []);
 
-  // suppress the contextmenu event that fires after right-click mouseup on a node
-  const onNodeContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (suppressNextCtx.current) {
-      suppressNextCtx.current = false;
-    }
-  }, []);
+  // ─── Track mouse & complete/cancel on right-click release ─────────────────
+  useEffect(() => {
+    if (!pendingConn) return;
+    const move = (e: MouseEvent) => setPendingConn((p) => p ? { ...p, mx: e.clientX, my: e.clientY } : null);
+    const up   = (e: MouseEvent) => {
+      if (e.button !== 2) return;
+      suppressNextCtx.current = true;
+      const targetId = hoveredNodeId.current;
+      if (targetId && targetId !== pendingConn.sourceId) {
+        openEdgeModal({ source: pendingConn.sourceId, target: targetId, sourceHandle: null, targetHandle: null });
+      }
+      setPendingConn(null);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+  }, [pendingConn]);
 
-  // track which node the mouse is over (used to complete drag connection on mouseup)
+  useEffect(() => {
+    if (!pendingConn) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setPendingConn(null); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [pendingConn]);
+
+  // ─── Mutations ─────────────────────────────────────────────────────────────
+  const reconcileMutation = useMutation({
+    mutationFn: (payload: { constraints: number[][]; measurements: number[]; tolerances: number[] }) =>
+      apiClient.post<{ reconciled_values: number[]; corrections: number[]; consistency_status: string }>('/reconcile', payload),
+  });
+
+  const edgeNames = useMemo(() => edges.map((e) => e.data?.name ?? e.id), [edges]);
+
+  const createAdjacencyMatrix = useCallback(() => {
+    const pnodes = nodes.filter((n) => {
+      const inC  = edges.filter((e) => e.target === n.id).length;
+      const outC = edges.filter((e) => e.source === n.id).length;
+      return inC > 0 && outC > 0; // only process nodes
+    });
+    const matrix = Array.from({ length: pnodes.length }, () => Array(edges.length).fill(0));
+    edges.forEach((edge, ei) => {
+      const si = pnodes.findIndex((n) => n.id === edge.source);
+      const ti = pnodes.findIndex((n) => n.id === edge.target);
+      if (si !== -1) matrix[si][ei] = -1;
+      if (ti !== -1) matrix[ti][ei] = 1;
+    });
+    return matrix;
+  }, [edges, nodes]);
+
+  // ─── Edge modal helpers ────────────────────────────────────────────────────
+  function openEdgeModal(params: Edge | Connection) {
+    const existing = 'id' in params ? edges.find((e) => e.id === (params as Edge).id) : undefined;
+    setEdgeModal({
+      params,
+      name:      existing?.data?.name      ?? generateEdgeName(),
+      value:     String(existing?.data?.value     ?? 100),
+      tolerance: String(existing?.data?.tolerance ?? 0.05),
+    });
+  }
+
+  const confirmEdge = useCallback(() => {
+    if (!edgeModal) return;
+    const data: FlowEdgeData = {
+      name:      edgeModal.name || generateEdgeName(),
+      value:     Number(edgeModal.value)     || 0,
+      tolerance: Number(edgeModal.tolerance) || 0,
+    };
+
+    const isEdit = 'id' in edgeModal.params && edges.some((e) => e.id === (edgeModal.params as Edge).id);
+
+    if (isEdit) {
+      setEdges((cur) => cur.map((e) =>
+        e.id === (edgeModal.params as Edge).id ? { ...e, data, label: formatEdgeLabel(data) } : e,
+      ));
+    } else {
+      const p = edgeModal.params as Connection;
+      const edgeId = `edge-${Date.now()}`;
+      // assign stable handle IDs based on current connection counts
+      const outIdx = edges.filter((e) => e.source === p.source).length;
+      const inIdx  = edges.filter((e) => e.target === p.target).length;
+      setEdges((cur) =>
+        addEdge({
+          ...p,
+          id: edgeId,
+          type: 'smoothstep',
+          markerEnd: { type: MarkerType.ArrowClosed },
+          sourceHandle: p.sourceHandle ?? `s-${outIdx}`,
+          targetHandle: p.targetHandle ?? `t-${inIdx}`,
+          data,
+          label: formatEdgeLabel(data),
+        }, cur),
+      );
+    }
+    setEdgeModal(null);
+  }, [edgeModal, edges, setEdges]);
+
+  // ─── ReactFlow handlers ────────────────────────────────────────────────────
+  const onConnect = useCallback((params: Edge | Connection) => openEdgeModal(params), [edges]);
+
   const onNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node<FlowNodeData>) => {
     hoveredNodeId.current = node.id;
   }, []);
@@ -327,66 +472,71 @@ export function ReconciliationCanvas() {
     hoveredNodeId.current = null;
   }, []);
 
-  // click on node while pending (click-mode fallback) → complete connection
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<FlowNodeData>) => {
     if (!pendingConn || node.id === pendingConn.sourceId) return;
-    const params: Connection = { source: pendingConn.sourceId, target: node.id, sourceHandle: null, targetHandle: null };
-    setEdgeModal({ params, name: generateEdgeName(), value: '100', tolerance: '0.05' });
+    openEdgeModal({ source: pendingConn.sourceId, target: node.id, sourceHandle: null, targetHandle: null });
     setPendingConn(null);
-  }, [pendingConn]);
+  }, [pendingConn, edges]);
 
-  // click on canvas while pending → cancel
-  const onPaneClick = useCallback(() => {
-    if (pendingConn) { setPendingConn(null); return; }
-  }, [pendingConn]);
-
-  // right-click on canvas (no pending) → context menu
-  const onPaneContextMenu = useCallback((e: React.MouseEvent) => {
-    if (pendingConn) { setPendingConn(null); return; }
+  const onNodeDoubleClick = useCallback((e: React.MouseEvent, node: Node<FlowNodeData>) => {
     e.preventDefault();
-    if (!rfInstance.current || !wrapperRef.current) return;
-    const bounds = wrapperRef.current.getBoundingClientRect();
-    const flowPos = rfInstance.current.screenToFlowPosition({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
-    setCtxMenu({ x: e.clientX, y: e.clientY, flowX: flowPos.x, flowY: flowPos.y });
-  }, [pendingConn]);
-
-  const addNodeAtPosition = useCallback((variant: FlowNodeVariant) => {
-    if (!ctxMenu) return;
-    setNodes((cur) => [...cur, createNode(`${variant}-${Date.now()}`, variant, ctxMenu.flowX, ctxMenu.flowY)]);
-  }, [ctxMenu, setNodes]);
-
-  const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node<FlowNodeData>) => {
-    const next = window.prompt('Nome do nó:', node.data.label);
-    if (!next) return;
-    setNodes((cur) => cur.map((n) => n.id === node.id ? { ...n, data: { ...n.data, label: next } } : n));
-  }, [setNodes]);
-
-  const onEdgeDoubleClick = useCallback((_: React.MouseEvent, edge: Edge<FlowEdgeData>) => {
-    setEdgeModal({ params: edge, name: edge.data?.name ?? '', value: String(edge.data?.value ?? 0), tolerance: String(edge.data?.tolerance ?? 0) });
+    setNodeMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
   }, []);
 
-  const confirmEdge = useCallback(() => {
-    if (!edgeModal) return;
-    const data: FlowEdgeData = { name: edgeModal.name || generateEdgeName(), value: Number(edgeModal.value) || 0, tolerance: Number(edgeModal.tolerance) || 0 };
-    const isEdit = 'id' in edgeModal.params && edges.some((e) => e.id === (edgeModal.params as Edge).id);
-    if (isEdit) {
-      setEdges((cur) => cur.map((e) => e.id === (edgeModal.params as Edge).id ? { ...e, data, label: formatEdgeLabel(data) } : e));
-    } else {
-      setEdges((cur) => addEdge({ ...edgeModal.params, id: `edge-${Date.now()}`, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed }, data, label: formatEdgeLabel(data) }, cur));
-    }
-    setEdgeModal(null);
-  }, [edgeModal, edges, setEdges]);
+  const onNodeContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    suppressNextCtx.current = false;
+  }, []);
 
+  const onEdgeDoubleClick = useCallback((_: React.MouseEvent, edge: Edge<FlowEdgeData>) => {
+    openEdgeModal(edge);
+  }, [edges]);
+
+  const onPaneClick = useCallback(() => {
+    if (pendingConn) setPendingConn(null);
+  }, [pendingConn]);
+
+  // right-click on canvas → pane context menu
+  const onPaneContextMenu = useCallback((e: React.MouseEvent) => {
+    if (pendingConn) { setPendingConn(null); return; }
+    if (suppressNextCtx.current) { suppressNextCtx.current = false; return; }
+    e.preventDefault();
+    if (!rfInstance.current || !wrapperRef.current) return;
+    const bounds  = wrapperRef.current.getBoundingClientRect();
+    const flowPos = rfInstance.current.screenToFlowPosition({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
+    setPaneMenu({ x: e.clientX, y: e.clientY, flowX: flowPos.x, flowY: flowPos.y });
+  }, [pendingConn]);
+
+  const addNodeAtPaneMenu = useCallback(() => {
+    if (!paneMenu) return;
+    const id = nextNodeId();
+    setNodes((cur) => [...cur, makeNode(id, paneMenu.flowX, paneMenu.flowY)]);
+  }, [paneMenu, setNodes]);
+
+  const renameNode = useCallback((nodeId: string) => {
+    const node = nodes.find((n) => n.id === nodeId);
+    const next = window.prompt('Nome do nó:', node?.data.label ?? '');
+    if (!next) return;
+    setNodes((cur) => cur.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, label: next } } : n));
+  }, [nodes, setNodes]);
+
+  const deleteNode = useCallback((nodeId: string) => {
+    setNodes((cur) => cur.filter((n) => n.id !== nodeId));
+    setEdges((cur) => cur.filter((e) => e.source !== nodeId && e.target !== nodeId));
+  }, [setNodes, setEdges]);
+
+  // ─── Reconcile ─────────────────────────────────────────────────────────────
   async function reconcile(jsonFile?: File) {
     try {
       setStatus('Processando...');
       let measurements = edges.map((e) => e.data?.value ?? 0);
       let tolerances   = edges.map((e) => e.data?.tolerance ?? 0);
       if (jsonFile) {
-        const text = await jsonFile.text();
+        const text    = await jsonFile.text();
         const payload = JSON.parse(text) as { measurements?: number[]; tolerances?: number[] };
-        measurements = payload.measurements ?? measurements;
-        tolerances   = payload.tolerances   ?? tolerances;
+        measurements  = payload.measurements ?? measurements;
+        tolerances    = payload.tolerances   ?? tolerances;
       }
       const constraints = createAdjacencyMatrix();
       const result = await reconcileMutation.mutateAsync({ measurements, tolerances, constraints });
@@ -402,7 +552,8 @@ export function ReconciliationCanvas() {
     if (file) await reconcile(file);
   }
 
-  const btnBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', fontSize: 11, fontWeight: 500, border: '1px solid var(--border-md)', borderRadius: 3, background: 'transparent', color: 'var(--tx-2)', cursor: 'pointer', whiteSpace: 'nowrap' };
+  // ─── Toolbar styles ────────────────────────────────────────────────────────
+  const btnBase: React.CSSProperties    = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', fontSize: 11, fontWeight: 500, border: '1px solid var(--border-md)', borderRadius: 3, background: 'transparent', color: 'var(--tx-2)', cursor: 'pointer', whiteSpace: 'nowrap' };
   const btnPrimary: React.CSSProperties = { ...btnBase, border: '1px solid var(--accent-bd)', background: 'var(--accent-bg)', color: 'var(--accent)', fontWeight: 600 };
   const sep = <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border-md)', margin: '0 6px' }} />;
   const grp = (t: string) => <span style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: 'var(--tx-3)', paddingRight: 4, userSelect: 'none' as const }}>{t}</span>;
@@ -453,11 +604,28 @@ export function ReconciliationCanvas() {
         </div>
       </div>
 
-      {sidebarVisible && <ReconciliationSidebar edges={edges} createAdjacencyMatrix={createAdjacencyMatrix} summaryVisible={summaryVisible} />}
+      {sidebarVisible && (
+        <ReconciliationSidebar edges={edges} createAdjacencyMatrix={createAdjacencyMatrix} summaryVisible={summaryVisible} />
+      )}
 
       {pendingConn && <GhostWire conn={pendingConn} />}
 
-      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} onSelect={addNodeAtPosition} onClose={() => setCtxMenu(null)} />}
+      {paneMenu && (
+        <PaneMenu
+          x={paneMenu.x} y={paneMenu.y}
+          onAdd={addNodeAtPaneMenu}
+          onClose={() => setPaneMenu(null)}
+        />
+      )}
+
+      {nodeMenu && (
+        <NodeMenu
+          x={nodeMenu.x} y={nodeMenu.y}
+          onRename={() => renameNode(nodeMenu.nodeId)}
+          onDelete={() => deleteNode(nodeMenu.nodeId)}
+          onClose={() => setNodeMenu(null)}
+        />
+      )}
 
       {edgeModal && (
         <EdgeModal
@@ -473,7 +641,11 @@ export function ReconciliationCanvas() {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-function ReconciliationSidebar({ edges, createAdjacencyMatrix, summaryVisible }: { edges: Edge<FlowEdgeData>[]; createAdjacencyMatrix: () => number[][]; summaryVisible: boolean }) {
+function ReconciliationSidebar({ edges, createAdjacencyMatrix, summaryVisible }: {
+  edges: Edge<FlowEdgeData>[];
+  createAdjacencyMatrix: () => number[][];
+  summaryVisible: boolean;
+}) {
   const matrix = createAdjacencyMatrix();
   const sec: React.CSSProperties  = { padding: '12px 14px', borderBottom: '1px solid var(--border)' };
   const lbl: React.CSSProperties  = { fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--tx-3)', marginBottom: 8 };
@@ -483,10 +655,10 @@ function ReconciliationSidebar({ edges, createAdjacencyMatrix, summaryVisible }:
     <aside className="flex w-60 shrink-0 flex-col overflow-y-auto" style={{ borderLeft: '1px solid var(--border)', background: 'var(--surface)' }}>
       <div style={sec}>
         <p style={lbl}>Correntes</p>
-        {edges.map((edge) => (
-          <div key={edge.id} style={card}>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx-1)', margin: 0 }}>{edge.data?.name}</p>
-            <p style={{ fontSize: 10, color: 'var(--tx-3)', margin: '2px 0 0' }}>{edge.data?.value ?? 0} ± {edge.data?.tolerance ?? 0}</p>
+        {edges.map((e) => (
+          <div key={e.id} style={card}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx-1)', margin: 0 }}>{e.data?.name}</p>
+            <p style={{ fontSize: 10, color: 'var(--tx-3)', margin: '2px 0 0' }}>{e.data?.value ?? 0} ± {e.data?.tolerance ?? 0}</p>
           </div>
         ))}
       </div>
