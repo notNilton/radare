@@ -1,0 +1,25 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  entrypoint = "tmp/main"
+  cmd = "go build -o ./tmp/main ./cmd/api"
+  bin = "tmp/main"
+  delay = 1000
+  exclude_dir = ["tmp", "vendor"]
+  include_ext = ["go"]
+  kill_delay = "0s"
+  log = "build-errors.log"
+  poll = false
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = false
+  stop_on_root_change = false
+
+[log]
+  main_only = false
+  silent = false
+  time = false
+
+[misc]
+  clean_on_exit = true
