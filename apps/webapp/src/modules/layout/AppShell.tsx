@@ -1,16 +1,8 @@
 import { PropsWithChildren, useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import {
-  CircleHelp,
-  Gauge,
-  History,
-  LogOut,
-  PanelLeft,
-  Tags,
-  UserCog,
-  Workflow,
-} from 'lucide-react';
+import { CircleHelp, Gauge, History, LogOut, Moon, Sun, Tags, UserCog, Workflow } from 'lucide-react';
 import { useAuthStore } from '../../store/AuthStore';
+import { useThemeStore } from '../../store/ThemeStore';
 import AboutModal from '../../components/About/AboutModal';
 
 const navigation = [
@@ -21,106 +13,99 @@ const navigation = [
   { to: '/profile', label: 'Perfil', icon: UserCog },
 ] as const;
 
-function navClass(isActive: boolean) {
-  return [
-    'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition',
-    isActive
-      ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20'
-      : 'text-slate-300 hover:bg-white/5 hover:text-white',
-  ].join(' ');
-}
-
 export function AppShell({ children }: PropsWithChildren) {
   const [showAbout, setShowAbout] = useState(false);
   const logout = useAuthStore((state) => state.logout);
-  const location = useRouterState({ select: (state) => state.location.pathname });
+  const { theme, toggle } = useThemeStore();
+  const location = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.16),_transparent_24%),linear-gradient(180deg,_#020617,_#0f172a_45%,_#111827)] text-slate-100">
-      <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-4 lg:px-6">
-        <aside className="hidden w-80 shrink-0 flex-col rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl backdrop-blur lg:flex">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="rounded-2xl bg-cyan-400/10 p-3 text-cyan-300">
-              <PanelLeft className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Mirante Style</p>
-              <h1 className="text-2xl font-semibold text-white">RADARE</h1>
-            </div>
-          </div>
-
-          <nav className="space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={navClass(location === item.to)}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-auto space-y-3">
-            <button
-              type="button"
-              onClick={() => setShowAbout(true)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-cyan-400/60 hover:text-white"
-            >
-              <CircleHelp className="h-4 w-4" />
-              Sobre o projeto
-            </button>
-            <button
-              type="button"
-              onClick={logout}
-              className="flex w-full items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-100 transition hover:border-rose-400/40 hover:bg-rose-400/15"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </button>
-          </div>
-        </aside>
-
-        <div className="flex min-h-screen flex-1 flex-col gap-4">
-          <header className="rounded-[2rem] border border-white/10 bg-slate-950/70 px-5 py-4 backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Monorepo Webapp</p>
-                <h2 className="text-xl font-semibold text-white">Operação e reconciliação</h2>
-              </div>
-              <div className="flex flex-wrap gap-2 lg:hidden">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={navClass(location === item.to)}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setShowAbout(true)}
-                  className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium text-slate-300"
-                >
-                  Sobre
-                </button>
-              </div>
-            </div>
-          </header>
-
-          <main className="flex-1">{children}</main>
+    <div
+      className="flex h-screen w-screen overflow-hidden"
+      style={{ background: 'var(--bg)', color: 'var(--tx-1)' }}
+    >
+      <aside
+        className="flex w-48 shrink-0 flex-col"
+        style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}
+      >
+        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+          <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--tx-3)' }}>
+            Radare
+          </p>
+          <p className="text-xs font-semibold" style={{ color: 'var(--tx-1)' }}>
+            Data Recon
+          </p>
         </div>
-      </div>
+
+        <nav className="flex flex-col gap-px p-2">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const active = location === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="flex items-center gap-2 rounded px-3 py-2 text-xs font-medium transition"
+                style={
+                  active
+                    ? { background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent-bd)', borderRadius: '4px' }
+                    : { color: 'var(--tx-2)' }
+                }
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--tx-1)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--tx-2)';
+                }}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div
+          className="mt-auto flex flex-col gap-px p-2"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex items-center gap-2 rounded px-3 py-2 text-xs transition"
+            style={{ color: 'var(--tx-2)' }}
+          >
+            {theme === 'dark'
+              ? <Sun className="h-3.5 w-3.5 shrink-0" />
+              : <Moon className="h-3.5 w-3.5 shrink-0" />}
+            {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAbout(true)}
+            className="flex items-center gap-2 rounded px-3 py-2 text-xs transition"
+            style={{ color: 'var(--tx-2)' }}
+          >
+            <CircleHelp className="h-3.5 w-3.5 shrink-0" />
+            Sobre
+          </button>
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center gap-2 rounded px-3 py-2 text-xs transition"
+            style={{ color: 'var(--danger)' }}
+          >
+            <LogOut className="h-3.5 w-3.5 shrink-0" />
+            Sair
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
 
       <AboutModal
         showAbout={showAbout}
-        toggleAboutPopup={() => setShowAbout((current) => !current)}
+        toggleAboutPopup={() => setShowAbout((v) => !v)}
       />
     </div>
   );
