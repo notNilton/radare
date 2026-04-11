@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	_ "radare-datarecon/apps/backend/docs"
 	"radare-datarecon/apps/backend/internal/config"
 	"radare-datarecon/apps/backend/internal/handlers"
 	"radare-datarecon/apps/backend/internal/middleware"
-	_ "radare-datarecon/apps/backend/docs"
 	"radare-datarecon/database"
 	"syscall"
 	"time"
@@ -76,6 +76,8 @@ func main() {
 	http.Handle("/api/reconcile/history", opts(middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetReconciliationHistory)))))
 	http.Handle("/api/reconcile/export", opts(middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.ExportReconciliationHistory)))))
 	http.Handle("/api/dashboard/stats", opts(middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.GetDashboardStats)))))
+	http.Handle("/api/workspaces", opts(middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.Workspaces)))))
+	http.Handle("/api/workspaces/", opts(middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.WorkspaceByID)))))
 	http.Handle("/api/ws", http.HandlerFunc(handlers.HandleWebsocket))
 	http.Handle("/healthz", middleware.LoggingMiddleware(middleware.ErrorHandler(handlers.HealthCheck)))
 
