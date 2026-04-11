@@ -138,6 +138,14 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Local Codex workspace state
+.codex
+.codex/
+
+# Go backend build/watch artifacts
+apps/backend/api
+apps/backend/tmp/
+
 # Logs
 logs
 *.log
