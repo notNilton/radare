@@ -1,21 +1,8 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import { apiClient, getErrorMessage } from '../../lib/api-client';
-import { queryKeys } from '../../lib/query-keys';
-
-interface Tag {
-  ID: number;
-  name: string;
-  description: string;
-  unit: string;
-}
-
-interface TagDraft {
-  name: string;
-  description: string;
-  unit: string;
-}
+import { getErrorMessage } from '../../lib/api-client';
+import { useCreateTag, useDeleteTag, useTags } from '../../hooks/useTags';
+import type { TagDraft, Tag } from '../../types';
 
 const emptyDraft: TagDraft = {
   name: '',
@@ -23,55 +10,96 @@ const emptyDraft: TagDraft = {
   unit: '',
 };
 
+const ITEMS_PER_PAGE = 50;
+
+// Componente memoizado para evitar re-renderizações em massa
+const TagRow = memo(({ tag, onDelete, tdStyle, btnDanger }: {
+  tag: Tag;
+  onDelete: (id: number) => void;
+  tdStyle: React.CSSProperties;
+  btnDanger: React.CSSProperties;
+}) => (
+  <tr>
+    <td style={{ ...tdStyle, fontWeight: 600 }}>{tag.name}</td>
+    <td style={tdStyle}>{tag.unit || '--'}</td>
+    <td style={{ ...tdStyle, color: 'var(--tx-2)' }}>{tag.description || '--'}</td>
+    <td style={{ ...tdStyle, textAlign: 'right' }}>
+      <button
+        type="button"
+        onClick={() => onDelete(tag.ID)}
+        style={btnDanger}
+      >
+        <Trash2 size={12} />
+        Excluir
+      </button>
+    </td>
+  </tr>
+));
+
 export function TagsManager() {
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<TagDraft>(emptyDraft);
   const [message, setMessage] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
-  const { data: tags = [], isLoading } = useQuery({
-    queryKey: queryKeys.tags.list(),
-    queryFn: () => apiClient.get<Tag[]>('/tags'),
-  });
+  // Virtual pagination state
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const observerRef = useRef<HTMLTableRowElement>(null);
 
-  const createTagMutation = useMutation({
-    mutationFn: (nextDraft: TagDraft) => apiClient.post('/tags/create', nextDraft),
-    onSuccess: async () => {
-      setDraft(emptyDraft);
-      setModalOpen(false);
-      setMessage('Tag criada com sucesso.');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
-    },
-    onError: (error) => {
-      setMessage(getErrorMessage(error, 'Não foi possível criar a tag.'));
-    },
-  });
+  const { data: allTags = [], isLoading } = useTags();
+  const createTagMutation = useCreateTag();
+  const deleteTagMutation = useDeleteTag();
 
-  const deleteTagMutation = useMutation({
-    mutationFn: (id: number) => apiClient.delete(`/tags/delete?id=${id}`),
-    onSuccess: async () => {
-      setMessage('Tag excluída.');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
-    },
-    onError: (error) => {
-      setMessage(getErrorMessage(error, 'Não foi possível excluir a tag.'));
-    },
-  });
+  // Chunks of data for infinite scroll
+  const visibleTags = useMemo(() => {
+    return allTags.slice(0, visibleCount);
+  }, [allTags, visibleCount]);
 
-  async function createTag() {
+  const hasMore = visibleCount < allTags.length;
+
+  // Infinite Scroll Logic (Frontend side)
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setVisibleCount((prev) => prev + ITEMS_PER_PAGE);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore]);
+
+  const createTag = async () => {
     if (!draft.name) {
       setMessage('Nome da tag é obrigatório.');
       return;
     }
-    await createTagMutation.mutateAsync(draft);
-  }
+    try {
+      await createTagMutation.mutateAsync(draft);
+      setDraft(emptyDraft);
+      setModalOpen(false);
+      setMessage('Tag criada com sucesso.');
+    } catch (error) {
+      setMessage(getErrorMessage(error, 'Não foi possível criar a tag.'));
+    }
+  };
 
-  async function deleteTag(id: number) {
+  const deleteTag = useCallback(async (id: number) => {
     if (!window.confirm('Deseja realmente excluir esta tag?')) {
       return;
     }
-    await deleteTagMutation.mutateAsync(id);
-  }
+    try {
+      await deleteTagMutation.mutateAsync(id);
+      setMessage('Tag excluída.');
+    } catch (error) {
+      setMessage(getErrorMessage(error, 'Não foi possível excluir a tag.'));
+    }
+  }, [deleteTagMutation]);
 
   // ─── Styles ───────────────────────────────────────────────────────────
 
@@ -116,6 +144,10 @@ export function TagsManager() {
     textAlign: 'left',
     borderBottom: '1px solid var(--border)',
     fontWeight: 600,
+    position: 'sticky',
+    top: 0,
+    background: 'var(--surface)',
+    zIndex: 10
   };
 
   const tdStyle: React.CSSProperties = {
@@ -126,12 +158,12 @@ export function TagsManager() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className="p-6 space-y-6 flex flex-col h-full overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>GESTÃO DE TAGS</h1>
           <p className="text-xs" style={{ color: 'var(--tx-2)', marginTop: 4 }}>
-            Cadastro e configuração das variáveis de processo.
+            Visualização de instrumentos com carregamento sob demanda.
           </p>
         </div>
         <button
@@ -145,7 +177,7 @@ export function TagsManager() {
       </header>
 
       {message && (
-        <div style={{
+        <div className="shrink-0" style={{
           padding: '10px 16px',
           background: 'var(--accent-bg)',
           border: '1px solid var(--accent-bd)',
@@ -157,13 +189,14 @@ export function TagsManager() {
         </div>
       )}
 
-      <section style={{
+      <section className="flex-1 overflow-hidden" style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 4,
-        overflow: 'hidden'
+        display: 'flex',
+        flexDirection: 'column'
       }}>
-        <div className="overflow-x-auto">
+        <div className="overflow-y-auto flex-1 custom-scrollbar">
           <table className="w-full border-collapse">
             <thead>
               <tr>
@@ -178,24 +211,29 @@ export function TagsManager() {
                 <tr>
                   <td style={tdStyle} colSpan={4}>Carregando tags...</td>
                 </tr>
-              ) : tags.length ? (
-                tags.map((tag) => (
-                  <tr key={tag.ID}>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{tag.name}</td>
-                    <td style={tdStyle}>{tag.unit || '--'}</td>
-                    <td style={{ ...tdStyle, color: 'var(--tx-2)' }}>{tag.description || '--'}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        onClick={() => void deleteTag(tag.ID)}
-                        style={btnDanger}
-                      >
-                        <Trash2 size={12} />
-                        Excluir
-                      </button>
+              ) : visibleTags.length ? (
+                <>
+                  {visibleTags.map((tag) => (
+                    <TagRow
+                      key={tag.ID}
+                      tag={tag}
+                      onDelete={deleteTag}
+                      tdStyle={tdStyle}
+                      btnDanger={btnDanger}
+                    />
+                  ))}
+
+                  {/* Observer Trigger */}
+                  <tr ref={observerRef}>
+                    <td colSpan={4} style={{ padding: '20px', textAlign: 'center' }}>
+                      {hasMore ? (
+                        <span style={{ fontSize: 11, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Carregando mais...</span>
+                      ) : (
+                        <span style={{ fontSize: 11, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Fim da lista • {allTags.length} tags</span>
+                      )}
                     </td>
                   </tr>
-                ))
+                </>
               ) : (
                 <tr>
                   <td style={tdStyle} colSpan={4}>Nenhuma tag cadastrada.</td>

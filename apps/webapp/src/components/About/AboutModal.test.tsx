@@ -13,16 +13,16 @@ vi.mock('lucide-react', () => ({
 describe('AboutModal', () => {
   it('should not render when showAbout is false', () => {
     render(<AboutModal showAbout={false} toggleAboutPopup={vi.fn()} />);
-    expect(screen.queryByText('Sobre')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sobre o Radare/)).not.toBeInTheDocument();
   });
 
   it('should render correctly when showAbout is true', () => {
     render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
-    expect(screen.getByText('Sobre')).toBeInTheDocument();
+    expect(screen.getByText(/Sobre o Radare/)).toBeInTheDocument();
     // RADARE appears multiple times
     expect(screen.getAllByText(/RADARE/)[0]).toBeInTheDocument();
     expect(screen.getByText(/Nilton Aguiar dos Santos/)).toBeInTheDocument();
-    expect(screen.getByText(/backend em Go/)).toBeInTheDocument();
+    expect(screen.getByText(/Go e React Flow/)).toBeInTheDocument();
   });
 
   it('should show contact links', () => {

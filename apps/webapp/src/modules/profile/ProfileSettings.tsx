@@ -1,22 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient, getErrorMessage } from '../../lib/api-client';
-import { queryKeys } from '../../lib/query-keys';
-
-interface UserProfile {
-  name: string;
-  contact_email: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zip_code?: string;
-    country?: string;
-  };
-}
+import { getErrorMessage } from '../../lib/api-client';
+import { useProfile, useUpdatePassword, useUpdateProfile } from '../../hooks/useProfile';
+import type { UserProfile } from '../../types';
 
 export function ProfileSettings() {
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<UserProfile>({
     name: '',
     contact_email: '',
@@ -30,10 +17,7 @@ export function ProfileSettings() {
   const [message, setMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
-  const { data: profile, isLoading } = useQuery({
-    queryKey: queryKeys.profile.detail(),
-    queryFn: () => apiClient.get<UserProfile>('/profile'),
-  });
+  const { data: profile, isLoading } = useProfile();
 
   useEffect(() => {
     if (profile) {
@@ -41,36 +25,21 @@ export function ProfileSettings() {
     }
   }, [profile]);
 
-  const updateProfileMutation = useMutation({
-    mutationFn: (nextUser: UserProfile) => apiClient.put('/profile/update', nextUser),
-    onSuccess: async () => {
-      setMessage('Perfil atualizado com sucesso.');
-      setProfileError(null);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.detail() });
-    },
-    onError: (error) => {
-      setProfileError(getErrorMessage(error, 'Não foi possível atualizar o perfil.'));
-    },
-  });
-
-  const updatePasswordMutation = useMutation({
-    mutationFn: (payload: { current_password: string; new_password: string }) =>
-      apiClient.post('/profile/password', payload),
-    onSuccess: () => {
-      setPasswords({ current: '', next: '', confirm: '' });
-      setMessage('Senha alterada com sucesso.');
-      setProfileError(null);
-    },
-    onError: (error) => {
-      setProfileError(getErrorMessage(error, 'Não foi possível alterar a senha.'));
-    },
-  });
+  const updateProfileMutation = useUpdateProfile();
+  const updatePasswordMutation = useUpdatePassword();
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
     setProfileError(null);
-    await updateProfileMutation.mutateAsync(user);
+
+    try {
+      await updateProfileMutation.mutateAsync(user);
+      setMessage('Perfil atualizado com sucesso.');
+      setProfileError(null);
+    } catch (error) {
+      setProfileError(getErrorMessage(error, 'Não foi possível atualizar o perfil.'));
+    }
   }
 
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
@@ -82,10 +51,18 @@ export function ProfileSettings() {
 
     setMessage(null);
     setProfileError(null);
-    await updatePasswordMutation.mutateAsync({
-      current_password: passwords.current,
-      new_password: passwords.next,
-    });
+
+    try {
+      await updatePasswordMutation.mutateAsync({
+        current_password: passwords.current,
+        new_password: passwords.next,
+      });
+      setPasswords({ current: '', next: '', confirm: '' });
+      setMessage('Senha alterada com sucesso.');
+      setProfileError(null);
+    } catch (error) {
+      setProfileError(getErrorMessage(error, 'Não foi possível alterar a senha.'));
+    }
   }
 
   // ─── Styles ───────────────────────────────────────────────────────────
@@ -125,15 +102,6 @@ export function ProfileSettings() {
     background: 'var(--surface)',
     border: '1px solid var(--border)',
     borderRadius: 4,
-  };
-
-  const lblStyle: React.CSSProperties = {
-    fontSize: 9,
-    textTransform: 'uppercase',
-    letterSpacing: '0.14em',
-    color: 'var(--tx-3)',
-    marginBottom: 8,
-    display: 'block'
   };
 
   return (

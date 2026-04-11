@@ -1,27 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Activity, BarChart3, DatabaseZap, Tags } from 'lucide-react';
-import { apiClient } from '../../lib/api-client';
-import { queryKeys } from '../../lib/query-keys';
 import { API_URL } from '../../config/env';
-
-interface DashboardStats {
-  total_reconciliations: number;
-  consistent_percentage: number;
-  total_tags: number;
-}
-
-interface LiveValues {
-  value1: number;
-  value2: number;
-}
+import { useDashboardStats } from '../../hooks/useDashboardStats';
+import type { LiveValues } from '../../types';
 
 export function DashboardOverview() {
   const [liveValues, setLiveValues] = useState<LiveValues | null>(null);
-  const { data: stats, isLoading } = useQuery({
-    queryKey: queryKeys.dashboard.stats(),
-    queryFn: () => apiClient.get<DashboardStats>('/dashboard/stats'),
-  });
+  const { data: stats, isLoading } = useDashboardStats();
 
   const socketUrl = useMemo(
     () => API_URL.replace(/^http/, 'ws').replace(/\/api$/, '/api/ws'),

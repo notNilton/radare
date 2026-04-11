@@ -1,13 +1,6 @@
-export interface ReconciliationEntry {
-  id: number;
-  user: string;
-  time: string;
-  tagname: string[];
-  tagreconciled: string[];
-  tagcorrection: string[];
-  tagmatrix: number[][];
-  status: string;
-}
+import type { ReconciliationEntry } from '../types';
+
+export type { ReconciliationEntry };
 
 const STORAGE_KEY = 'reconciliationData';
 

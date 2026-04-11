@@ -1,7 +1,15 @@
 import { createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute } from '../__root';
-import { LoginForm } from '../../modules/auth/LoginForm';
 import { useAuthStore } from '../../store/AuthStore';
+import { lazyRouteComponent } from '../../components/Route/LazyRoute';
+
+const LoginFormRoute = lazyRouteComponent(
+  () => import('../../modules/auth/LoginForm').then((module) => ({
+    default: module.LoginForm,
+  })),
+  'login',
+  'auth',
+);
 
 export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -11,5 +19,5 @@ export const loginRoute = createRoute({
       throw redirect({ to: '/' });
     }
   },
-  component: LoginForm,
+  component: LoginFormRoute,
 });

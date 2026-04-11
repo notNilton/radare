@@ -1,9 +1,9 @@
 import { FormEvent, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, LockKeyhole, User } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
-import { apiClient, getErrorMessage } from '../../lib/api-client';
+import { getErrorMessage } from '../../lib/api-client';
 import { useAuthStore } from '../../store/AuthStore';
+import { useLogin } from '../../hooks/useLogin';
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -13,12 +13,7 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const loginMutation = useMutation({
-    mutationFn: (credentials: { password: string; username: string }) =>
-      apiClient.post<{ token?: string }>('/login', credentials, {
-        authRedirect: false,
-      }),
-  });
+  const loginMutation = useLogin();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

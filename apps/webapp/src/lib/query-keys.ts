@@ -16,4 +16,8 @@ export const queryKeys = {
   tags: {
     list: () => ['tags'] as const,
   },
+  workspaces: {
+    list: () => ['workspaces'] as const,
+    detail: (id: number) => ['workspaces', id] as const,
+  },
 };
