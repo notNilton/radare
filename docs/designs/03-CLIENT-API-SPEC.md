@@ -1,4 +1,4 @@
-# API Client Documentation (Bruno Collection)
+# 03 - Especificação de API Client (Bruno)
 
 The `client-api` directory contains a [Bruno](https://www.usebruno.com/) collection for interacting with the Radare backend. This collection is essential for testing endpoints, debugging, and understanding the API contract.
 

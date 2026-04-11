@@ -1,4 +1,4 @@
-# Backend Architecture & API Specification
+# 01 - Especificação de Backend e API
 
 The Radare backend is a high-performance REST API built in Go. It handles data reconciliation using the Lagrange Multipliers method, manages user authentication, and provides real-time updates via WebSockets.
 

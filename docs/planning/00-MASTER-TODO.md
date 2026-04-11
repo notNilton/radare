@@ -80,27 +80,26 @@
 ---
 
 ## 🏗️ Fase 4 - Inteligência Operacional e Persistência
-
-### 🚀 Backend (Cérebro Estatístico)
-- [ ] **Persistência de Grafos:** Salvar e carregar layouts de nós e arestas no banco de dados.
+- [x] **Persistência de Grafos:** Salvar e carregar layouts de nós e arestas no banco de dados.
 - [ ] **Detecção de Erros Brutos:** Implementar Teste Global (Qui-quadrado) para identificar vazamentos ou sensores defeituosos.
 - [ ] **Engine de Projetos:** Suporte a múltiplos "Workspaces" ou "Processos" independentes.
-
-### 🎨 Frontend (Análise Visual)
 - [ ] **Visualização de Tendências:** Gráficos de série temporal (Medido vs Reconciliado) por tag.
 - [ ] **Heatmaps no Grafo:** Colorir arestas no canvas baseando-se na magnitude da correção aplicada.
-- [ ] **Undo/Redo:** Implementar histórico de ações no editor de grafos.
 
 ---
 
 ## 📊 Fase 5 - Conectividade e Enterprise
-
-### 🚀 Integração e Relatórios
 - [ ] **Exportação PDF:** Gerador de relatórios executivos com sumário estatístico e gráficos.
-- [ ] **Ingestão Automática:** Criar workers para ler dados de fontes externas (MQTT/SQL/InfluxDB).
+- [ ] **Ingestão Automática:** Criar workers para ler dados de fontes externas (MQTT/SQL/Historians).
 - [ ] **RBAC (Role-Based Access Control):** Níveis de permissão (Admin, Operador, Auditor).
-
-### 🛠️ UX e Resiliência
 - [ ] **PWA (Progressive Web App):** Suporte a instalação e funcionamento offline básico.
-- [ ] **Temas Customizados:** Persistência de preferência de tema (Dark/Light/Industrial) no perfil do usuário.
-- [ ] **Notificações Push:** Alertas de inconsistência crítica via WebSocket/Browser Notifications.
+- [ ] **Audit Logs:** Rastreabilidade total de alterações em configurações críticas.
+
+---
+
+## 💎 Fase 6 - Evolução Multi-Tenant e Escala
+- [ ] **Arquitetura Multi-Tenant:** Implementar `Tenants` e isolamento total de dados entre clientes.
+- [ ] **Hierarquia Operacional:** Cadastro de `Facilities`, `Assets` e versionamento de templates de processo.
+- [ ] **Processamento Assíncrono:** Implementar fila de `Jobs` para reconciliações de larga escala.
+- [ ] **Idempotência:** Garantir integridade de execuções simultâneas via chaves únicas.
+- [ ] **Outbox Pattern:** Garantir consistência eventual entre persistência e notificações externas.

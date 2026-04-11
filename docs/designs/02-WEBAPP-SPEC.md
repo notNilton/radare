@@ -1,4 +1,4 @@
-# Webapp Architecture & Design System
+# 02 - Especificação de Webapp e Design System
 
 The Radare web application is a React + TypeScript SPA built with Vite. It features a technical "industrial" design language, using CSS variables for theme management and TanStack Router for type-safe routing.
 

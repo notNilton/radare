@@ -1,3 +1,5 @@
+# 00 - Arquitetura de Banco de Dados (Evolução)
+
 Se a meta final é virar uma plataforma multiempresa, multiusuário e com reconciliações isoladas por cliente, então o banco atual é só a base. Ele precisa evoluir de “app simples com 3 tabelas” para “plataforma operacional multi-tenant”.
 
 **Direção Principal**
