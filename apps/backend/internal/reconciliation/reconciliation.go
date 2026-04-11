@@ -6,7 +6,10 @@ package reconciliation
 import (
 	"errors"
 	"fmt"
+	"math"
+
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 // Reconcile ajusta os valores medidos para que obedeçam às equações de restrição,
@@ -22,6 +25,17 @@ type ReconcileResult struct {
 	ReconciledValues []float64
 	ChiSquare        float64
 	DegreesOfFreedom int
+	GlobalTest       GlobalTestResult
+}
+
+// GlobalTestResult contains the chi-square gross-error detection result.
+type GlobalTestResult struct {
+	Statistic           float64
+	CriticalValue       float64
+	StatisticalValidity bool
+	ConfidenceScore     float64
+	OutlierIndex        int
+	OutlierContribution float64
 }
 
 // Reconcile ajusta os valores medidos para que obedeçam às equações de restrição,
@@ -90,36 +104,69 @@ func Reconcile(measurements, tolerances []float64, constraints *mat.Dense) (*Rec
 		reconciled[i] = resultVec.AtVec(i)
 	}
 
-	// Calcula o valor de Qui-quadrado (Chi-square) para o teste de consistência.
-	chiSquare := 0.0
+	// Calcula o valor de Qui-quadrado (h = r^T V^-1 r) para o teste global.
+	contributions := make([]float64, numMeasurements)
 	for i := 0; i < numMeasurements; i++ {
 		residual := (reconciled[i] - measurements[i]) / absDeviations[i]
-		chiSquare += residual * residual
+		contributions[i] = residual * residual
 	}
+	globalTest := GlobalTest(contributions, numConstraints, 0.05)
 
 	return &ReconcileResult{
 		ReconciledValues: reconciled,
-		ChiSquare:        chiSquare,
+		ChiSquare:        globalTest.Statistic,
 		DegreesOfFreedom: numConstraints,
+		GlobalTest:       globalTest,
 	}, nil
+}
+
+// GlobalTest evaluates h = r^T V^-1 r against a chi-square distribution.
+func GlobalTest(contributions []float64, df int, alpha float64) GlobalTestResult {
+	if alpha <= 0 {
+		alpha = 0.05
+	}
+
+	statistic := 0.0
+	outlierIndex := -1
+	outlierContribution := 0.0
+	for i, contribution := range contributions {
+		statistic += contribution
+		if contribution > outlierContribution {
+			outlierIndex = i
+			outlierContribution = contribution
+		}
+	}
+
+	if df <= 0 {
+		return GlobalTestResult{
+			Statistic:           statistic,
+			CriticalValue:       math.Inf(1),
+			StatisticalValidity: true,
+			ConfidenceScore:     1,
+			OutlierIndex:        outlierIndex,
+			OutlierContribution: outlierContribution,
+		}
+	}
+
+	distribution := distuv.ChiSquared{K: float64(df)}
+	criticalValue := distribution.Quantile(1 - alpha)
+	confidenceScore := distribution.Survival(statistic)
+	if math.IsNaN(confidenceScore) {
+		confidenceScore = 0
+	}
+
+	return GlobalTestResult{
+		Statistic:           statistic,
+		CriticalValue:       criticalValue,
+		StatisticalValidity: statistic <= criticalValue,
+		ConfidenceScore:     confidenceScore,
+		OutlierIndex:        outlierIndex,
+		OutlierContribution: outlierContribution,
+	}
 }
 
 // IsConsistent verifica se o resultado da reconciliação é estatisticamente consistente
 // dado um nível de significância (alfa).
 func IsConsistent(chiSquare float64, df int, alpha float64) bool {
-	if alpha <= 0 {
-		alpha = 0.05
-	}
-	// Tabela simplificada de valores críticos de Qui-quadrado para alfa = 0.05.
-	criticalValues05 := map[int]float64{
-		1: 3.84, 2: 5.99, 3: 7.81, 4: 9.49, 5: 11.07,
-		6: 12.59, 7: 14.07, 8: 15.51, 9: 16.92, 10: 18.31,
-	}
-
-	criticalValue, ok := criticalValues05[df]
-	if !ok {
-		criticalValue = float64(df) + 1.65*float64(df) // Aproximação grosseira
-	}
-
-	return chiSquare <= criticalValue
+	return GlobalTest([]float64{chiSquare}, df, alpha).StatisticalValidity
 }

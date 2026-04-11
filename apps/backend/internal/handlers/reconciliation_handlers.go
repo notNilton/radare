@@ -34,14 +34,22 @@ type ReconciliationRequest struct {
 	Tolerances []float64 `json:"tolerances"`
 	// Constraints é uma matriz (slice de slices de float64) que representa as equações de restrição linear.
 	Constraints [][]float64 `json:"constraints"`
+	// TagNames associa nomes opcionais às medições para identificação de outlier.
+	TagNames []string `json:"tag_names,omitempty"`
 }
 
 // ReconciliationResponse representa a estrutura da resposta JSON para uma reconciliação bem-sucedida.
 type ReconciliationResponse struct {
-	ReconciledValues  []float64 `json:"reconciled_values"`
-	Corrections       []float64 `json:"corrections"`
-	ConsistencyStatus string    `json:"consistency_status"`
-	// Outros campos como Chi2TestResult, etc., podem ser adicionados aqui.
+	ReconciledValues    []float64 `json:"reconciled_values"`
+	Corrections         []float64 `json:"corrections"`
+	ConsistencyStatus   string    `json:"consistency_status"`
+	ChiSquare           float64   `json:"chi_square"`
+	CriticalValue       float64   `json:"critical_value"`
+	StatisticalValidity bool      `json:"statistical_validity"`
+	ConfidenceScore     float64   `json:"confidence_score"`
+	OutlierIndex        int       `json:"outlier_index"`
+	OutlierTag          string    `json:"outlier_tag,omitempty"`
+	OutlierContribution float64   `json:"outlier_contribution"`
 }
 
 var (
@@ -165,8 +173,12 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 
 	// Determina o status de consistência.
 	status := "Inconsistente"
-	if reconciliation.IsConsistent(result.ChiSquare, result.DegreesOfFreedom, 0.05) {
+	if result.GlobalTest.StatisticalValidity {
 		status = "Consistente"
+	}
+	outlierTag := ""
+	if result.GlobalTest.OutlierIndex >= 0 && result.GlobalTest.OutlierIndex < len(req.TagNames) {
+		outlierTag = req.TagNames[result.GlobalTest.OutlierIndex]
 	}
 
 	// Salva a reconciliação no banco de dados se o usuário estiver autenticado.
@@ -174,13 +186,20 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	if ok {
 		repository := repositories.NewReconciliationRepository(database.DB)
 		dbRecon := models.Reconciliation{
-			UserID:            uint(userID),
-			Measurements:      req.Measurements,
-			Tolerances:        req.Tolerances,
-			Constraints:       req.Constraints,
-			ReconciledValues:  result.ReconciledValues,
-			Corrections:       corrections,
-			ConsistencyStatus: status,
+			UserID:              uint(userID),
+			Measurements:        req.Measurements,
+			Tolerances:          req.Tolerances,
+			Constraints:         req.Constraints,
+			ReconciledValues:    result.ReconciledValues,
+			Corrections:         corrections,
+			ConsistencyStatus:   status,
+			ChiSquare:           result.GlobalTest.Statistic,
+			CriticalValue:       result.GlobalTest.CriticalValue,
+			StatisticalValidity: result.GlobalTest.StatisticalValidity,
+			ConfidenceScore:     result.GlobalTest.ConfidenceScore,
+			OutlierIndex:        result.GlobalTest.OutlierIndex,
+			OutlierTag:          outlierTag,
+			OutlierContribution: result.GlobalTest.OutlierContribution,
 		}
 		_ = repository.Create(&dbRecon)
 	}
@@ -188,9 +207,16 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Prepara e envia a resposta de sucesso em formato JSON.
 	w.Header().Set("Content-Type", "application/json")
 	response := ReconciliationResponse{
-		ReconciledValues:  result.ReconciledValues,
-		Corrections:       corrections,
-		ConsistencyStatus: status,
+		ReconciledValues:    result.ReconciledValues,
+		Corrections:         corrections,
+		ConsistencyStatus:   status,
+		ChiSquare:           result.GlobalTest.Statistic,
+		CriticalValue:       result.GlobalTest.CriticalValue,
+		StatisticalValidity: result.GlobalTest.StatisticalValidity,
+		ConfidenceScore:     result.GlobalTest.ConfidenceScore,
+		OutlierIndex:        result.GlobalTest.OutlierIndex,
+		OutlierTag:          outlierTag,
+		OutlierContribution: result.GlobalTest.OutlierContribution,
 	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		return err

@@ -95,3 +95,31 @@ func TestIsConsistent(t *testing.T) {
 		})
 	}
 }
+
+func TestGlobalTestIdentifiesOutlierContribution(t *testing.T) {
+	result := GlobalTest([]float64{0.1, 8.0, 0.4}, 1, 0.05)
+
+	if result.Statistic != 8.5 {
+		t.Fatalf("expected statistic 8.5, got %f", result.Statistic)
+	}
+
+	if result.StatisticalValidity {
+		t.Fatal("expected gross-error detection to fail statistical validity")
+	}
+
+	if result.OutlierIndex != 1 {
+		t.Fatalf("expected outlier index 1, got %d", result.OutlierIndex)
+	}
+
+	if result.OutlierContribution != 8.0 {
+		t.Fatalf("expected outlier contribution 8.0, got %f", result.OutlierContribution)
+	}
+
+	if result.ConfidenceScore <= 0 || result.ConfidenceScore >= 1 {
+		t.Fatalf("expected confidence score in (0, 1), got %f", result.ConfidenceScore)
+	}
+
+	if result.CriticalValue < 3.8 || result.CriticalValue > 3.9 {
+		t.Fatalf("expected critical value near 3.84, got %f", result.CriticalValue)
+	}
+}
