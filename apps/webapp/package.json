@@ -2,7 +2,7 @@
   "name": "@radare/webapp",
   "description": "Web application for the Radare monorepo",
   "private": true,
-  "version": "0.0.8",
+  "version": "0.0.9",
   "type": "module",
   "packageManager": "npm@10.9.7",
   "engines": {
