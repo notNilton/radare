@@ -7,6 +7,7 @@ import (
 
 	"radare-datarecon/database"
 
+	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/postgres"
@@ -22,7 +23,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		tcpostgres.WithDatabase("radare_test"),
 		tcpostgres.WithUsername("radare"),
 		tcpostgres.WithPassword("radare"),
-		tcpostgres.WithWaitStrategy(
+		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
 				WithStartupTimeout(2*time.Minute),
