@@ -22,6 +22,27 @@ services:
       retries: 10
       start_period: 30s
 
+  logdb:
+    image: docker.io/library/postgres:18-alpine
+    container_name: radare-logdb-local
+    userns_mode: keep-id
+    environment:
+      POSTGRES_DB: ${LOG_DB_NAME:-radare_logs}
+      POSTGRES_USER: ${DB_USER:-radare}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-radare}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - logdb_data_local:/var/lib/postgresql/data:Z
+    ports:
+      - "127.0.0.1:5433:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-radare} -d ${LOG_DB_NAME:-radare_logs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   migrate:
     build:
       context: ./database
@@ -62,6 +83,77 @@ services:
       DB_SSLMODE: ${DB_SSLMODE:-disable}
     command: ["seed"]
 
+  migrate-log:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-migrate-log-local
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      logdb:
+        condition: service_healthy
+    network_mode: "host"
+    environment:
+      LOG_DB_URL: postgresql://${DB_USER:-radare}:${DB_PASSWORD:-radare}@127.0.0.1:5433/${LOG_DB_NAME:-radare_logs}?sslmode=disable
+    command: ["log-up"]
+
+  seed-log:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-seed-log-local
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      migrate-log:
+        condition: service_completed_successfully
+    network_mode: "host"
+    environment:
+      LOG_DB_URL: postgresql://${DB_USER:-radare}:${DB_PASSWORD:-radare}@127.0.0.1:5433/${LOG_DB_NAME:-radare_logs}?sslmode=disable
+    command: ["log-seed"]
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: radare-redis-local
+    userns_mode: keep-id
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  mqtt:
+    image: docker.io/eclipse-mosquitto:2
+    container_name: radare-mqtt-local
+    userns_mode: keep-id
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"
+    # Allow anonymous connections — dev only.
+    command: >
+      sh -c "echo 'listener 1883\nallow_anonymous true\n' > /mosquitto/config/mosquitto.conf
+             && mosquitto -c /mosquitto/config/mosquitto.conf"
+
+  influxdb:
+    image: docker.io/library/influxdb:2
+    container_name: radare-influxdb-local
+    userns_mode: keep-id
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: radare
+      DOCKER_INFLUXDB_INIT_PASSWORD: radarepass
+      DOCKER_INFLUXDB_INIT_ORG: radare
+      DOCKER_INFLUXDB_INIT_BUCKET: process
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: radare-dev-token
+    volumes:
+      - influxdb_data_local:/var/lib/influxdb2:Z
+
 volumes:
   postgres_data_local:
+    driver: local
+  logdb_data_local:
+    driver: local
+  influxdb_data_local:
     driver: local
