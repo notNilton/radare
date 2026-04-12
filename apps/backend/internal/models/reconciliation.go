@@ -7,19 +7,22 @@ import (
 // Reconciliation representa o registro de uma operação de reconciliação realizada por um usuário.
 type Reconciliation struct {
 	gorm.Model
-	UserID              uint        `gorm:"not null" json:"user_id"`
-	User                User        `gorm:"foreignKey:UserID"`
-	Measurements        []float64   `gorm:"serializer:json" json:"measurements"`
-	Tolerances          []float64   `gorm:"serializer:json" json:"tolerances"`
-	Constraints         [][]float64 `gorm:"serializer:json" json:"constraints"`
-	ReconciledValues    []float64   `gorm:"serializer:json" json:"reconciled_values"`
-	Corrections         []float64   `gorm:"serializer:json" json:"corrections"`
-	ConsistencyStatus   string      `json:"consistency_status"`
-	ChiSquare           float64     `json:"chi_square"`
-	CriticalValue       float64     `json:"critical_value"`
-	StatisticalValidity bool        `json:"statistical_validity"`
-	ConfidenceScore     float64     `json:"confidence_score"`
-	OutlierIndex        int         `json:"outlier_index"`
-	OutlierTag          string      `json:"outlier_tag"`
-	OutlierContribution float64     `json:"outlier_contribution"`
+	TenantID            *uint              `gorm:"index" json:"tenant_id,omitempty"`
+	UserID              uint               `gorm:"not null" json:"user_id"`
+	User                User               `gorm:"foreignKey:UserID"`
+	WorkspaceVersionID  *uint              `gorm:"index" json:"workspace_version_id,omitempty"`
+	WorkspaceVersion    *WorkspaceVersion  `gorm:"foreignKey:WorkspaceVersionID" json:"-"`
+	Measurements        []float64          `gorm:"serializer:json" json:"measurements"`
+	Tolerances          []float64          `gorm:"serializer:json" json:"tolerances"`
+	Constraints         [][]float64        `gorm:"serializer:json" json:"constraints"`
+	ReconciledValues    []float64          `gorm:"serializer:json" json:"reconciled_values"`
+	Corrections         []float64          `gorm:"serializer:json" json:"corrections"`
+	ConsistencyStatus   string             `json:"consistency_status"`
+	ChiSquare           float64            `json:"chi_square"`
+	CriticalValue       float64            `json:"critical_value"`
+	StatisticalValidity bool               `json:"statistical_validity"`
+	ConfidenceScore     float64            `json:"confidence_score"`
+	OutlierIndex        int                `json:"outlier_index"`
+	OutlierTag          string             `json:"outlier_tag"`
+	OutlierContribution float64            `json:"outlier_contribution"`
 }
