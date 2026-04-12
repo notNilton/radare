@@ -52,3 +52,9 @@ export function useExportHistory() {
     mutationFn: () => apiClient.getBlob('/reconcile/export'),
   });
 }
+
+export function useExportHistoryPdf() {
+  return useMutation({
+    mutationFn: () => apiClient.getBlob('/reconcile/export/pdf'),
+  });
+}
