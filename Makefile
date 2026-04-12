@@ -11,27 +11,29 @@ WEBAPP_DIR ?= apps/webapp
 help:
 	@printf "Radare local workflow\n\n"
 	@printf "Usage:\n"
-	@printf "  make db             Start local Postgres\n"
-	@printf "  make db-bootstrap   Start Postgres, run migrations and seeds\n"
+	@printf "  make db             Start CoreDB + LogDB + Redis (recreate if needed)\n"
+	@printf "  make db-bootstrap   Start DBs, run all migrations and seeds\n"
 	@printf "  make backend        Start backend with air\n"
 	@printf "  make webapp         Start webapp with npm run dev\n"
-	@printf "  make dev            Start Postgres, backend and webapp\n\n"
+	@printf "  make dev            Start DBs, backend and webapp\n\n"
 	@printf "Database helpers:\n"
-	@printf "  make migrate        Run database migrations\n"
-	@printf "  make seed           Run database seeds\n"
-	@printf "  make db-logs        Follow database logs\n"
-	@printf "  make db-down        Stop local compose services\n"
+	@printf "  make migrate        Run CoreDB migrations\n"
+	@printf "  make seed           Run CoreDB seeds\n"
+	@printf "  make migrate-log    Run LogDB migrations\n"
+	@printf "  make seed-log       Run LogDB seeds\n"
+	@printf "  make db-logs        Follow CoreDB logs\n"
+	@printf "  make db-down        Stop all local compose services\n"
 	@printf "  make status         Show local compose service status\n\n"
 	@printf "Config overrides:\n"
 	@printf "  COMPOSE='docker compose' make db\n"
 
 .PHONY: db
 db:
-	$(COMPOSE) -f $(COMPOSE_FILE) up -d db
+	$(COMPOSE) -f $(COMPOSE_FILE) up -d --force-recreate db logdb redis mqtt influxdb
 
 .PHONY: db-bootstrap
 db-bootstrap:
-	$(COMPOSE) -f $(COMPOSE_FILE) up --build seed
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build --force-recreate migrate migrate-log seed seed-log
 
 .PHONY: migrate
 migrate:
@@ -40,6 +42,14 @@ migrate:
 .PHONY: seed
 seed:
 	$(COMPOSE) -f $(COMPOSE_FILE) up --build seed
+
+.PHONY: migrate-log
+migrate-log:
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build migrate-log
+
+.PHONY: seed-log
+seed-log:
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build seed-log
 
 .PHONY: db-logs
 db-logs:
