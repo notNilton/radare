@@ -7,6 +7,8 @@ import { dashboardRoute } from './routes/app/dashboard';
 import { historyRoute } from './routes/app/history';
 import { tagsRoute } from './routes/app/tags';
 import { profileRoute } from './routes/app/profile';
+import { adminRoute } from './routes/app/admin';
+import { connectivityRoute } from './routes/app/connectivity';
 
 const appRouteTree = appLayoutRoute.addChildren([
   homeRoute,
@@ -14,6 +16,8 @@ const appRouteTree = appLayoutRoute.addChildren([
   historyRoute,
   tagsRoute,
   profileRoute,
+  adminRoute,
+  connectivityRoute,
 ]);
 
 const routeTree = rootRoute.addChildren([loginRoute, appRouteTree]);
