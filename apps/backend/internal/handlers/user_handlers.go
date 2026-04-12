@@ -51,7 +51,7 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Generate a hash of the password for secure storage.
-// ... (rest of the code unchanged)
+	// ... (rest of the code unchanged)
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -69,7 +69,7 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Save the new user to the database.
-	if result := database.DB.Create(&user); result.Error != nil {
+	if result := database.CoreDB.Create(&user); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Error creating user: " + result.Error.Error()}
 	}
 
@@ -78,11 +78,14 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// generateToken creates a new JWT for a user.
-func generateToken(userID uint, jwtSecret string) (string, error) {
+// generateToken creates a new JWT for a user, embedding their role and tenant_id
+// for downstream middleware to enforce access control without a DB lookup.
+func generateToken(userID uint, role models.Role, tenantID *uint, jwtSecret string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+		"user_id":   userID,
+		"role":      string(role),
+		"tenant_id": tenantID,
+		"exp":       time.Now().Add(time.Hour * 72).Unix(),
 	})
 
 	return token.SignedString([]byte(jwtSecret))
@@ -107,7 +110,7 @@ func LoginHandler(jwtSecret string) middleware.AppHandler {
 		}
 
 		var user models.User
-		if result := database.DB.Where("username = ?", req.Username).First(&user); result.Error != nil {
+		if result := database.CoreDB.Where("username = ?", req.Username).First(&user); result.Error != nil {
 			return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
 		}
 
@@ -115,7 +118,7 @@ func LoginHandler(jwtSecret string) middleware.AppHandler {
 			return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Incorrect password"}
 		}
 
-		tokenString, err := generateToken(user.ID, jwtSecret)
+		tokenString, err := generateToken(user.ID, user.Role, user.TenantID, jwtSecret)
 		if err != nil {
 			return err
 		}
@@ -127,6 +130,8 @@ func LoginHandler(jwtSecret string) middleware.AppHandler {
 }
 
 // RefreshHandler creates a handler for refreshing an existing token.
+// It re-reads the user's current role from the DB so role changes take
+// effect at the next token refresh without requiring a full re-login.
 func RefreshHandler(jwtSecret string) middleware.AppHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		userID, ok := r.Context().Value("userID").(float64)
@@ -134,7 +139,12 @@ func RefreshHandler(jwtSecret string) middleware.AppHandler {
 			return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Unauthorized"}
 		}
 
-		newToken, err := generateToken(uint(userID), jwtSecret)
+		var user models.User
+		if result := database.CoreDB.Select("id", "role", "tenant_id").First(&user, uint(userID)); result.Error != nil {
+			return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
+		}
+
+		newToken, err := generateToken(user.ID, user.Role, user.TenantID, jwtSecret)
 		if err != nil {
 			return err
 		}
@@ -144,6 +154,7 @@ func RefreshHandler(jwtSecret string) middleware.AppHandler {
 		return nil
 	}
 }
+
 // GetUserProfile returns the profile of the authenticated user.
 // The user ID is extracted from the JWT, which is validated by the AuthMiddleware.
 func GetUserProfile(w http.ResponseWriter, r *http.Request) error {
@@ -156,7 +167,7 @@ func GetUserProfile(w http.ResponseWriter, r *http.Request) error {
 
 	var user models.User
 	// Fetch the user from the database, omitting the password for security.
-	if result := database.DB.Omit("Password").First(&user, uint(userID)); result.Error != nil {
+	if result := database.CoreDB.Omit("Password").First(&user, uint(userID)); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
 	}
 
@@ -174,7 +185,7 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var user models.User
-	if result := database.DB.First(&user, uint(userID)); result.Error != nil {
+	if result := database.CoreDB.First(&user, uint(userID)); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
 	}
 
@@ -187,13 +198,19 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) error {
 	// GORM allows updating from a map, which is ideal for partial updates.
 	// Prevent password from being updated through this endpoint.
 	delete(updates, "password")
+	if rawTheme, ok := updates["theme"]; ok {
+		theme, ok := rawTheme.(string)
+		if !ok || !isValidTheme(theme) {
+			return middleware.HTTPError{Code: http.StatusBadRequest, Message: "Tema inválido"}
+		}
+	}
 	flattenAddressUpdates(updates)
-	if result := database.DB.Model(&user).Updates(updates); result.Error != nil {
+	if result := database.CoreDB.Model(&user).Updates(updates); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Error updating user profile"}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if result := database.DB.Omit("Password").First(&user, uint(userID)); result.Error != nil {
+	if result := database.CoreDB.Omit("Password").First(&user, uint(userID)); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
 	}
 
@@ -221,7 +238,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var user models.User
-	if result := database.DB.First(&user, uint(userID)); result.Error != nil {
+	if result := database.CoreDB.First(&user, uint(userID)); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusNotFound, Message: "User not found"}
 	}
 
@@ -237,7 +254,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Update the user's password in the database.
-	if result := database.DB.Model(&user).Update("password", string(hashedPassword)); result.Error != nil {
+	if result := database.CoreDB.Model(&user).Update("password", string(hashedPassword)); result.Error != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Error changing password"}
 	}
 
@@ -275,4 +292,13 @@ func flattenAddressUpdates(updates map[string]interface{}) {
 	}
 
 	delete(updates, "address")
+}
+
+func isValidTheme(value string) bool {
+	switch models.Theme(value) {
+	case models.ThemeDark, models.ThemeLight, models.ThemeIndustrial:
+		return true
+	default:
+		return false
+	}
 }
