@@ -46,4 +46,9 @@ Este documento identifica as limitações e riscos da arquitetura atual do **Rad
 ## 6. Sincronicidade do Backend (Performance)
 - [ ] **Problema:** A reconciliação é síncrona. Para grafos extremamente grandes, a requisição HTTP pode expirar (timeout).
 - [ ] **Impacto:** Limitação do tamanho da planta que pode ser processada.
-- [ ] **Plano de Ação (Fase 6):** Processamento assíncrono via Jobs e Filas.
+---
+
+## 7. Poluição e Bloat do Banco (Risco de Performance)
+- [ ] **Problema:** Logs de auditoria, históricos de erro e estados efêmeros de cálculo estão sendo salvos no banco principal junto com a lógica de negócio.
+- [ ] **Impacto:** Degradação de performance em queries de Tags/Workspaces e backup excessivamente pesado com dados irrelevantes para a lógica do sistema.
+- [ ] **Plano de Ação (Fase 5):** Implementar Arquitetura Dual DB (Logical DB + Observability DB).

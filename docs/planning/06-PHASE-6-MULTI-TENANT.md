@@ -1,51 +1,48 @@
-# 06 - Estratégia da Fase 6: Evolução Multi-Tenant
+# 06 - Estratégia da Fase 6: Reboot Multi-Tenant (Clean Slate)
 
-> **Status: [ ] Não Implementada**
+> **Status: [ ] Planejada**
 
-
-
-A Fase 6 é o redesenho estrutural do banco de dados para suportar múltiplos clientes, hierarquia operacional complexa e processamento assíncrono.
+A Fase 6 representa uma quebra de compatibilidade (Breaking Change) para transformar o Radare em uma plataforma SaaS escalável. Não haverá migração de dados; o banco de dados será resetado para o novo schema multi-tenant e hierárquico.
 
 ---
 
-## 1. Arquitetura Multi-Tenant
+## 1. Identidade e Isolamento (Multi-Tenant)
 
 ### 🚀 Backend
-- [ ] **Identidade Global e Tenants:**
-    - [ ] Introduzir a tabela `tenants` (empresas).
-    - [ ] Criar `tenant_users` para gerenciar permissões de um usuário em diferentes empresas.
-    - [ ] Adicionar `tenant_id` em todas as tabelas principais (`tags`, `workspaces`, `reconciliations`).
-- [ ] **Isolamento de Dados:**
-    - [ ] Configurar Row Level Security (RLS) no Postgres ou garantir filtragem por `tenant_id` em todos os handlers.
+- [ ] **Core Schema V2:**
+    - [ ] Criar tabela `tenants` como raiz de todos os dados.
+    - [ ] Implementar `tenant_id` em todas as entidades (tags, workspaces, reconciliations).
+- [ ] **Segurança de Dados:**
+    - [ ] Implementar Row Level Security (RLS) no PostgreSQL para garantir isolamento físico entre clientes.
+    - [ ] Refatorar middlewares para extrair o `tenant_id` do JWT e aplicar nos contextos das queries.
 
 ---
 
-## 2. Hierarquia e Domínio Operacional
+## 2. Nova Hierarquia Industrial (Asset Management)
 
 ### 🚀 Backend
-- [ ] **Níveis de Ativos:**
-    - [ ] Implementar tabelas para `facilities` (unidades), `assets` (equipamentos) e `processes`.
-    - [ ] Vincular tags e workspaces a níveis específicos da hierarquia para melhor organização.
-- [ ] **Templates e Runs:**
-    - [ ] Separar a configuração (Template) da execução (Run).
-    - [ ] Criar `reconciliation_runs`, `reconciliation_measurements` e `reconciliation_results` como tabelas independentes para auditoria total.
+- [ ] **Domínio de Ativos:**
+    - [ ] Implementar `sites` (unidades físicas), `units` (unidades de processo) e `equipment`.
+    - [ ] Vincular `workspaces` (grafos) a níveis específicos dessa hierarquia.
+- [ ] **Modelagem de Execução:**
+    - [ ] Separar `templates` (definição do grafo) de `runs` (instância de cálculo com dados reais).
+    - [ ] Tabela `reconciliation_results` otimizada para séries temporais e auditoria.
 
 ---
 
-## 3. Autonomia e Idempotência
+## 3. Processamento em Larga Escala (Async)
 
 ### 🚀 Backend
-- [ ] **Reconciliation Jobs:**
-    - [ ] Implementar fila de processamento assíncrono para reconciliações pesadas (Jobs).
-    - [ ] Criar `idempotency_keys` para evitar execuções duplicadas acidentais de um mesmo sensor.
-- [ ] **Outbox Pattern:**
-    - [ ] Implementar `outbox_events` para garantir que notificações e webhooks sejam disparados apenas após a persistência bem-sucedida da reconciliação.
+- [ ] **Worker Engine:**
+    - [ ] Implementar fila de processamento assíncrono para cálculos complexos.
+    - [ ] Suporte a Webhooks para notificar sistemas externos após a conclusão de uma "run".
+- [ ] **Idempotência Técnica:**
+    - [ ] Uso obrigatório de `idempotency_keys` em todas as ingestões para evitar duplicidade de medições em cenários de alta frequência.
 
 ---
 
-## 4. Estratégia de Migração
+## 4. Execução do Reboot
 
-- [ ] **Schema Paralelo:** Criar novas tabelas sem deletar as antigas.
-- [ ] **Double Writing:** Começar a escrever nos dois formatos se possível.
-- [ ] **Data Backfill:** Migrar dados legados para os novos tenants padrão.
-- [ ] **Cutover:** Virar a chave da API para usar exclusivamente o novo schema multi-tenant.
+- [ ] **Nuke & Pave:** Script para purgar o banco de dados atual e aplicar o novo schema.
+- [ ] **Fresh Start:** Inicialização de tenants padrão para testes internos.
+- [ ] **API V2:** Lançamento da nova especificação de endpoints sob o prefixo `/v2/`.

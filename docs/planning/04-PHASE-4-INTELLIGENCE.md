@@ -1,6 +1,6 @@
 # 04 - Estratégia da Fase 4: Inteligência e Persistência
 
-> **Status: [~] Em implementação**
+> **Status: [x] Concluída**
 
 
 
@@ -75,4 +75,4 @@ A Fase 4 transforma o **Radare** de uma ferramenta de cálculo volátil em um si
 
 ## 🧪 Estratégia de Testes
 - [x] **Backend:** Testes unitários para a função de cálculo do Qui-quadrado com matrizes conhecidas.
-- [ ] **Frontend:** Teste de integração para salvar/carregar um grafo complexo sem perda de dados.
+- [x] **Frontend:** Teste de integração para salvar/carregar um grafo complexo sem perda de dados.

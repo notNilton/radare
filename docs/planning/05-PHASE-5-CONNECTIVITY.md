@@ -1,54 +1,70 @@
 # 05 - Estratégia da Fase 5: Conectividade e Enterprise
 
-> **Status: [ ] Não Implementada**
+> **Status: [x] Concluída** — Dual DB ✅ | Particionamento ✅ | Audit Logs ✅ | PDF Export ✅ | Workspace Versioning ✅ | RBAC ✅ | Redis + MQTT + Influx ✅ | WebSocket Hub + Notificações ✅ | PWA ✅ | Temas ✅
 
-
-
-A Fase 5 foca na integração do **Radare** com ecossistemas industriais externos, segurança granular e experiência de usuário avançada.
+A Fase 5 foca na integração do **Radare** com ecossistemas industriais externos, segurança granular e uma fundação de dados de alta performance (Redis + Dual DB + Snapshotting).
 
 ---
 
-## 1. Conectividade e Ingestão Automática
+## 1. Infraestrutura de Dados e Alta Performance
 
 ### 🚀 Backend
-- [ ] **Data Ingestion Workers:**
-    - [ ] Criar workers em Go para buscar dados de fontes externas (MQTT brokers ou bancos de série temporal como InfluxDB).
-    - [ ] Mapeamento de tags externas para tags internas do Radare.
-- [ ] **Relatórios Executivos (PDF):**
-    - [ ] Implementar geração de relatórios técnicos formatados no backend ou frontend (Ex: usando `gofpdf` ou bibliotecas JS).
-
-### 🎨 Frontend
-- [ ] **Interface de Ingestão:**
-    - [ ] Tela de configuração de conectores (Ex: Configurar endereço de um PLC ou Banco de Dados).
+- [x] **Dual Database Architecture (Separation of Concerns):**
+    - [x] **Truth DB (Postgres Main):** Apenas dados lógicos, configurações de tags e usuários.
+    - [x] **LogDB (Postgres Observability):** Instância isolada para logs de auditoria, históricos de erro e snapshots efêmeros.
+- [x] **Real-time Ingestion Layer (Redis):**
+    - [x] Implementar Redis como buffer de alta velocidade para "Current Values" das tags.
+    - [x] Evitar escritas excessivas no Postgres: o worker MQTT/Influx escreve no Redis; o Postgres é atualizado apenas em intervalos ou quando uma reconciliação é consolidada.
+- [x] **Workspace Versioning (Snapshotting):**
+    - [x] Implementar imutabilidade na topologia: cada alteração no canvas gera uma nova versão (UUID) no banco.
+    - [x] Histórico de Reconciliação deve apontar para o ID da versão do grafo usada no momento do cálculo.
+- [x] **Table Partitioning (Scalability):**
+    - [x] Preparar a tabela de resultados históricos para particionamento nativo do Postgres por tempo (mensal).
 
 ---
 
-## 2. Segurança e Governança (RBAC)
+## 2. Conectividade e Ingestão Automática
 
 ### 🚀 Backend
-- [ ] **Controle de Acesso Baseado em Papéis (RBAC):**
-    - [ ] Implementar níveis de permissão: `Admin` (tudo), `Operador` (executa e edita grafos), `Auditor` (apenas visualiza histórico).
-- [ ] **Audit Logs:**
-    - [ ] Tabela para registrar quem alterou o quê e quando (Ex: mudança de configuração de tag ou deleção de histórico).
-
----
-
-## 3. UX e Resiliência (Mobile & PWA)
+- [x] **Data Ingestion Workers (MQTT & InfluxDB):**
+    - [x] Criar workers em Go que assinam tópicos industriais e atualizam o cache do Redis.
+    - [x] Interface de Mapeamento (De-Para): tela para vincular nomes de tags externas aos IDs internos do Radare.
+- [x] **Relatórios Executivos (PDF):**
+    - [x] Geração de sumários estatísticos formatados (pure-Go PDF) integrando dados de balanço e erros brutos.
 
 ### 🎨 Frontend
-- [ ] **PWA (Progressive Web App):**
-    - [ ] Configurar Service Workers e manifesto para permitir instalação do Radare no desktop/celular.
-    - [ ] Suporte básico offline para visualização de dados cacheados.
-- [ ] **Notificações Push:**
-    - [ ] Alertas via Browser/WebSocket quando uma reconciliação crítica falhar ou detectar erro bruto alto.
-- [ ] **Temas Customizados:**
-    - [ ] Opção para o usuário salvar sua preferência de tema (Industrial, Dark, Light) no perfil.
+- [x] **Dashboard de Conectividade:**
+    - [x] Visualização do status dos conectores (Online/Offline/Latência).
+    - [x] Interface para gerenciamento de chaves de API para ingestão externa.
 
 ---
 
-## 📅 Cronograma Sugerido
+## 3. Segurança e Governança (RBAC & Audit)
 
-- [ ] **Semana 1:** Implementação de exportação PDF e Audit Logs.
-- [ ] **Semana 2:** Estrutura de RBAC e permissões no frontend.
-- [ ] **Semana 3:** Configuração de PWA e Notificações Push.
-- [ ] **Semana 4:** Módulo de ingestão automática (MVP MQTT).
+### 🚀 Backend
+- [x] **Controle de Acesso Baseado em Papéis (RBAC):**
+    - [x] Perfis: `Admin` (gestão total), `Operador` (execução e edição), `Auditor` (somente leitura de histórico).
+- [x] **Audit Logs (Persistidos no LogDB):**
+    - [x] Registro detalhado de quem alterou configurações críticas de tags ou deletou workspaces.
+
+---
+
+## 4. UX e Resiliência (Mobile & PWA)
+
+### 🎨 Frontend
+- [x] **PWA (Progressive Web App):**
+    - [x] Configurar `vite-plugin-pwa` + Workbox Service Worker para instalação e suporte offline básico.
+- [x] **Notificações Push (WebSocket):**
+    - [x] `hub.go` — fan-out hub singleton com `Broadcast(type, payload)`.
+    - [x] `useNotifications.ts` — WebSocket consumer com auto-reconexão; mapeia eventos em toasts.
+    - [x] `NotificationStore.ts` — Zustand store `push/dismiss/clear` (máx. 20).
+    - [x] `Notifications.tsx` — overlay de toasts com auto-dismiss em 6 s e ícones por nível.
+
+---
+
+## 📅 Cronograma Sugerido (Refinado)
+
+- [x] **Semana 1:** Setup do Redis e LogDB (Docker Compose + Conexões em Go).
+- [x] **Semana 2:** Implementação de Workspace Versioning e Ingestão MQTT básica.
+- [x] **Semana 3:** Estrutura de RBAC e Audit Logs.
+- [x] **Semana 4:** PWA, Notificações e Relatórios PDF.

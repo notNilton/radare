@@ -81,25 +81,79 @@
 
 ## 🏗️ Fase 4 - Inteligência Operacional e Persistência
 - [x] **Persistência de Grafos:** Salvar e carregar layouts de nós e arestas no banco de dados.
-- [ ] **Detecção de Erros Brutos:** Implementar Teste Global (Qui-quadrado) para identificar vazamentos ou sensores defeituosos.
-- [ ] **Engine de Projetos:** Suporte a múltiplos "Workspaces" ou "Processos" independentes.
-- [ ] **Visualização de Tendências:** Gráficos de série temporal (Medido vs Reconciliado) por tag.
-- [ ] **Heatmaps no Grafo:** Colorir arestas no canvas baseando-se na magnitude da correção aplicada.
+- [x] **Detecção de Erros Brutos:** Implementar Teste Global (Qui-quadrado) para identificar vazamentos ou sensores defeituosos.
+- [x] **Engine de Projetos:** Suporte a múltiplos "Workspaces" ou "Processos" independentes.
+- [x] **Visualização de Tendências:** Gráficos de série temporal (Medido vs Reconciliado) por tag.
+- [x] **Heatmaps no Grafo:** Colorir arestas no canvas baseando-se na magnitude da correção aplicada.
 
 ---
 
-## 📊 Fase 5 - Conectividade e Enterprise
-- [ ] **Exportação PDF:** Gerador de relatórios executivos com sumário estatístico e gráficos.
-- [ ] **Ingestão Automática:** Criar workers para ler dados de fontes externas (MQTT/SQL/Historians).
-- [ ] **RBAC (Role-Based Access Control):** Níveis de permissão (Admin, Operador, Auditor).
-- [ ] **PWA (Progressive Web App):** Suporte a instalação e funcionamento offline básico.
-- [ ] **Audit Logs:** Rastreabilidade total de alterações em configurações críticas.
+## 📊 Fase 5 - Conectividade e Enterprise (Atual)
+
+### 🚀 Backend (Infraestrutura & Ingestão)
+- [x] **Dual Database Architecture:** Configurar banco secundário (LogDB) isolado para logs e auditoria.
+- [x] **Real-time Ingest Layer (Redis):** Buffer de alta performance para valores atuais das tags.
+- [x] **Workspace Versioning:** Snapshotting imutável de topologias de grafos para rastreabilidade.
+- [x] **Table Partitioning:** Particionamento mensal de tabelas de histórico no Postgres.
+- [x] **Data Ingestion Workers:** Implementar workers em Go para MQTT e InfluxDB.
+- [x] **Mapeamento dinâmico:** Interface para De-Para de tags externas para internas.
+- [x] **Exportação PDF:** Gerador de relatórios executivos com sumário estatístico e gráficos.
+
+### 🎨 Frontend (Segurança & UX)
+- [x] **Dashboard de Conectividade:** Visualização de status e latência dos conectores externos.
+- [x] **RBAC UI:** Interface de permissões por perfis (Admin, Operador, Auditor).
+- [x] **PWA & Offline:** `vite-plugin-pwa` + Workbox Service Worker + manifesto para instalação mobile/desktop.
+- [x] **Notificações Push:** Hub WebSocket fan-out, `NotificationStore`, `useNotifications`, toast overlay com auto-dismiss.
+
+- [x] **Temas Customizados:** Salvamento de preferência (Industrial, Dark, Light) no perfil do usuário.
 
 ---
 
 ## 💎 Fase 6 - Evolução Multi-Tenant e Escala
-- [ ] **Arquitetura Multi-Tenant:** Implementar `Tenants` e isolamento total de dados entre clientes.
-- [ ] **Hierarquia Operacional:** Cadastro de `Facilities`, `Assets` e versionamento de templates de processo.
-- [ ] **Processamento Assíncrono:** Implementar fila de `Jobs` para reconciliações de larga escala.
+
+### 🚀 Backend (Arquitetura SaaS)
+- [ ] **Isolamento de Dados:** Implementar `tenant_id` e Row Level Security (RLS) no Postgres.
+- [ ] **Hierarquia de Ativos:** Cadastro de `Facilities`, `Assets` e versionamento de templates.
+- [ ] **Processamento Assíncrono:** Fila de `Jobs` para reconciliações de larga escala.
 - [ ] **Idempotência:** Garantir integridade de execuções simultâneas via chaves únicas.
 - [ ] **Outbox Pattern:** Garantir consistência eventual entre persistência e notificações externas.
+
+### 🎨 Frontend (Gestão Enterprise)
+- [ ] **Switch de Workspace/Tenant:** Interface para troca rápida de contexto de empresa.
+- [ ] **Dashboard Multi-Unidade:** Visão agregada de performance entre diferentes plantas.
+
+---
+
+## ⚙️ Fase 07 - Otimização Heurística e Algoritmos Genéticos
+
+### 🚀 Backend (Advanced Engineering)
+- [ ] **Genetic Algorithm Solver:** Implementar solver para encontrar pesos ideais de sensores onde a variância é desconhecida.
+- [ ] **Constraint Programming:** Adicionar restrições de desigualdade (ex: vazão mínima em válvulas) no cálculo de reconciliação.
+- [ ] **Detecção de Drift:** Algoritmo para identificar degradação de precisão em sensores ao longo do tempo.
+
+---
+
+## 🛡️ Fase 08 - Stress Testing e Robustez de Dados
+
+### 🧪 Qualidade Industrial
+- [ ] **Data Fuzzing:** Engine para injetar dados sintéticos corrompidos e testar a resiliência do algoritmo de Qui-quadrado.
+- [ ] **Sanity Checker:** Validador termodinâmico básico para impedir resultados fisicamente impossíveis.
+- [ ] **Monte Carlo Simulations:** Executar múltiplas reconciliações com perturbação nos inputs para análise de incerteza.
+
+---
+
+## 🏗️ Fase 09 - Integração de Campo e Edge Computing
+
+### 🔌 Conectividade Real
+- [ ] **Radare Edge:** Versão leve para rodar em ARM/Gateways de campo via Docker.
+- [ ] **Local Buffering:** Persistência temporária em SQLite no Edge para casos de queda de link com a nuvem.
+- [ ] **Protocols V2:** Implementar suporte nativo a OPC-UA e Modbus TCP.
+
+---
+
+## 🌐 Fase 10 - Digital Twins e Alta Disponibilidade
+
+### 🚀 Escala Global
+- [ ] **Federated Sync:** Sincronização entre múltiplas instâncias regionais do Radare.
+- [ ] **3D Process Mapping:** Interface para mapear o grafo sobre modelos 3D (BIM) simplificados no frontend.
+- [ ] **Disaster Recovery:** Replicação geográfica de banco de dados e failover automático.
