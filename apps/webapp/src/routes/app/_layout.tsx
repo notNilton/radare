@@ -1,7 +1,7 @@
 import { createRoute, Outlet, redirect } from '@tanstack/react-router';
 import { rootRoute } from '../__root';
 import { useAuthStore } from '../../store/AuthStore';
-import { AppShell } from '../../modules/layout/AppShell';
+import { AppShell } from './AppShell';
 
 function AppLayout() {
   return (

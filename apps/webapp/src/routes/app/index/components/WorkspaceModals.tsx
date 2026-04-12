@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react';
-import type { Workspace } from '../../../types';
+import type { Workspace } from '../../../../types';
 import type { WorkspaceDraft } from '../types';
 
 export function WorkspaceSaveModal({ draft, isSaving, onCancel, onChange, onConfirm }: {

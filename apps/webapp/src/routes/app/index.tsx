@@ -2,9 +2,9 @@ import { createRoute } from '@tanstack/react-router';
 import { appLayoutRoute } from './_layout';
 import { lazyRouteComponent } from '../../components/Route/LazyRoute';
 
-const ReconciliationWorkspaceRoute = lazyRouteComponent(
-  () => import('../../modules/reconciliation/ReconciliationWorkspace').then((module) => ({
-    default: module.ReconciliationWorkspace,
+const WorkspacePageRoute = lazyRouteComponent(
+  () => import('./index/WorkspacePage').then((module) => ({
+    default: module.WorkspacePage,
   })),
   'reconciliação',
   'canvas',
@@ -13,5 +13,5 @@ const ReconciliationWorkspaceRoute = lazyRouteComponent(
 export const homeRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/',
-  component: ReconciliationWorkspaceRoute,
+  component: WorkspacePageRoute,
 });

@@ -3,7 +3,7 @@ import { appLayoutRoute } from './_layout';
 import { lazyRouteComponent } from '../../components/Route/LazyRoute';
 
 const HistoryTableRoute = lazyRouteComponent(
-  () => import('../../modules/history/HistoryTable').then((module) => ({
+  () => import('./history/HistoryTable').then((module) => ({
     default: module.HistoryTable,
   })),
   'histórico',

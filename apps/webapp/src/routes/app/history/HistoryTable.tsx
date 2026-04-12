@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Download, SlidersHorizontal, X } from 'lucide-react';
-import { useExportHistory, useInfiniteHistory } from '../../hooks/useHistory';
+import { useExportHistory, useInfiniteHistory } from '../../../hooks/useHistory';
 
 export function HistoryTable() {
   const [status, setStatus] = useState('');

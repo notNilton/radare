@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { MarkerType, type Edge, type Node } from 'reactflow';
 import type { FlowEdgeData, FlowNodeData } from './types';
 
@@ -18,9 +19,30 @@ export function syncNodeSeq(nextNodes: Node<FlowNodeData>[]) {
 export function formatEdgeLabel(d: FlowEdgeData) {
   const base = `${d.name} • ${d.value} ± ${d.tolerance}`;
   if (d.correctionPercent !== undefined && !isNaN(d.correctionPercent)) {
-    return `${base} (Δ ${d.correctionPercent.toFixed(1)}%)`;
+    const marker = d.isOutlier ? ' • outlier' : '';
+    return `${base} (Δ ${d.correctionPercent.toFixed(1)}%)${marker}`;
   }
   return base;
+}
+
+export function getCorrectionHeatmapStyle(percent: number, isOutlier = false): CSSProperties {
+  if (isOutlier) {
+    return { stroke: 'var(--danger)', strokeWidth: 4, filter: 'drop-shadow(0 0 5px rgba(239, 68, 68, 0.55))' };
+  }
+
+  if (percent >= 10) {
+    return { stroke: 'var(--danger)', strokeWidth: 3.5 };
+  }
+
+  if (percent >= 5) {
+    return { stroke: '#f59e0b', strokeWidth: 3 };
+  }
+
+  if (percent > 0) {
+    return { stroke: 'var(--accent)', strokeWidth: 2.25 };
+  }
+
+  return { stroke: 'var(--tx-3)', strokeWidth: 2 };
 }
 
 export function generateEdgeName() {

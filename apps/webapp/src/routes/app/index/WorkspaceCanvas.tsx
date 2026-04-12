@@ -1,4 +1,5 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Download, Eye, EyeOff } from 'lucide-react';
 import {
   addEdge,
   Background,
@@ -9,28 +10,139 @@ import {
   MarkerType,
   Node,
   ReactFlow,
-  ReactFlowInstance,
   useEdgesState,
   useNodesState,
+  type EdgeChange,
+  type NodeChange,
+  type ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { getErrorMessage } from '../../lib/api-client';
-import { saveReconciliationEntry } from '../../lib/reconciliation-storage';
-import { useReconcile } from '../../hooks/useReconcile';
-import { useDeleteWorkspace, useSaveWorkspace, useWorkspaces } from '../../hooks/useWorkspaces';
-import type { ReconcileResult, Workspace } from '../../types';
+import { getErrorMessage } from '../../../lib/api-client';
+import { saveReconciliationEntry } from '../../../lib/reconciliation-storage';
+import { useReconcile } from '../../../hooks/useReconcile';
+import { useDeleteWorkspace, useSaveWorkspace, useWorkspaces } from '../../../hooks/useWorkspaces';
+import type { ReconcileResult, Workspace } from '../../../types';
 import { EdgeModal } from './components/EdgeModal';
 import { FlowNode, nodeTypes } from './components/FlowNode';
 import { GhostWire } from './components/GhostWire';
 import { NodeMenu, PaneMenu } from './components/ContextMenus';
-import { ReconciliationSidebar } from './components/ReconciliationSidebar';
-import { ReconciliationToolbar } from './components/ReconciliationToolbar';
+import { WorkspaceSidebar } from './components/WorkspaceSidebar';
+import { WorkspaceToolbar } from './components/WorkspaceToolbar';
 import { WorkspaceLoadModal, WorkspaceSaveModal } from './components/WorkspaceModals';
-import { formatEdgeLabel, generateEdgeName, makeNode, nextNodeId, syncNodeSeq } from './flowUtils';
+import { formatEdgeLabel, generateEdgeName, getCorrectionHeatmapStyle, makeNode, nextNodeId, syncNodeSeq } from './flowUtils';
 import { canvasPresets, initialEdges, initialNodes } from './presets';
 import type { CanvasPreset, EdgeModalState, FlowEdgeData, FlowNodeData, PendingConn, WorkspaceDraft } from './types';
 
 export { FlowNode };
+
+interface CanvasSnapshot {
+  edges: Edge<FlowEdgeData>[];
+  nodes: Node<FlowNodeData>[];
+}
+
+function cloneCanvas(nodes: Node<FlowNodeData>[], edges: Edge<FlowEdgeData>[]): CanvasSnapshot {
+  return {
+    edges: edges.map((edge) => ({
+      ...edge,
+      data: edge.data ? { ...edge.data } : edge.data,
+      style: edge.style ? { ...edge.style } : edge.style,
+    })),
+    nodes: nodes.map((node) => ({
+      ...node,
+      data: { ...node.data },
+      position: { ...node.position },
+    })),
+  };
+}
+
+function shouldTrackNodeChange(change: NodeChange) {
+  return change.type !== 'select' && change.type !== 'dimensions';
+}
+
+function shouldTrackEdgeChange(change: EdgeChange) {
+  return change.type !== 'select';
+}
+
+function CanvasToolsPanel({
+  onFileUpload,
+  onLoadPreset,
+  onToggleSidebar,
+  onToggleSummary,
+  open,
+  pendingConnection,
+  presets,
+  setOpen,
+  sidebarVisible,
+  summaryVisible,
+}: {
+  onFileUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onLoadPreset: (preset: CanvasPreset) => void;
+  onToggleSidebar: () => void;
+  onToggleSummary: () => void;
+  open: boolean;
+  pendingConnection: boolean;
+  presets: CanvasPreset[];
+  setOpen: (open: boolean) => void;
+  sidebarVisible: boolean;
+  summaryVisible: boolean;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const btn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '6px 8px', border: '1px solid var(--border-md)', borderRadius: 4, background: 'var(--surface)', color: 'var(--tx-2)', cursor: 'pointer', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' };
+  const label: React.CSSProperties = { fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--tx-3)', margin: '0 0 6px' };
+
+  return (
+    <div
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      style={{ position: 'absolute', left: 14, top: 14, zIndex: 10, maxWidth: 330 }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{ ...btn, background: open ? 'var(--accent-bg)' : 'var(--surface)', color: open ? 'var(--accent)' : 'var(--tx-2)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+      >
+        Ferramentas
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 8, width: 330, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', boxShadow: '0 16px 38px rgba(0,0,0,0.18)', padding: 10 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            <button type="button" style={btn} onClick={() => fileRef.current?.click()}><Download size={12} />Importar JSON</button>
+            <button type="button" style={btn} onClick={onToggleSidebar}>
+              {sidebarVisible ? <EyeOff size={12} /> : <Eye size={12} />}
+              {sidebarVisible ? 'Ocultar painel' : 'Exibir painel'}
+            </button>
+            <button type="button" style={btn} onClick={onToggleSummary}>
+              {summaryVisible ? <EyeOff size={12} /> : <Eye size={12} />}
+              {summaryVisible ? 'Ocultar resumo' : 'Exibir resumo'}
+            </button>
+          </div>
+
+          <p style={label}>Exemplos</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
+            {presets.map((preset) => (
+              <button key={preset.id} type="button" style={btn} onClick={() => onLoadPreset(preset)}>
+                {preset.name}
+              </button>
+            ))}
+          </div>
+
+          {pendingConnection && (
+            <p style={{ margin: '10px 0 0', color: 'var(--accent)', fontSize: 11 }}>
+              Clique em um nó para conectar. Esc cancela.
+            </p>
+          )}
+        </div>
+      )}
+
+      <input ref={fileRef} type="file" accept=".json" onChange={onFileUpload} className="hidden" />
+    </div>
+  );
+}
 
 function useAdjacencyMatrix(nodes: Node<FlowNodeData>[], edges: Edge<FlowEdgeData>[]) {
   return useMemo(() => {
@@ -51,7 +163,7 @@ function useAdjacencyMatrix(nodes: Node<FlowNodeData>[], edges: Edge<FlowEdgeDat
   }, [edges, nodes]);
 }
 
-export function ReconciliationCanvas() {
+export function WorkspaceCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [status, setStatus] = useState<string | null>(null);
@@ -66,6 +178,9 @@ export function ReconciliationCanvas() {
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [workspaceDraft, setWorkspaceDraft] = useState<WorkspaceDraft>({ description: '', name: '' });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDraft | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [history, setHistory] = useState<{ past: CanvasSnapshot[]; future: CanvasSnapshot[] }>({ past: [], future: [] });
 
   const rfInstance = useRef<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -79,6 +194,51 @@ export function ReconciliationCanvas() {
 
   const edgeNames = useMemo(() => edges.map((edge) => edge.data?.name ?? edge.id), [edges]);
   const adjacencyMatrix = useAdjacencyMatrix(nodes, edges);
+
+  const recordCanvasSnapshot = useCallback(() => {
+    const snapshot = cloneCanvas(nodes, edges);
+    setHistory((current) => {
+      const last = current.past[current.past.length - 1];
+      if (last && JSON.stringify(last) === JSON.stringify(snapshot)) return current;
+      return { past: [...current.past, snapshot].slice(-50), future: [] };
+    });
+  }, [edges, nodes]);
+
+  const undoCanvas = useCallback(() => {
+    const previous = history.past[history.past.length - 1];
+    if (!previous) return;
+
+    setHistory((current) => ({
+      past: current.past.slice(0, -1),
+      future: [cloneCanvas(nodes, edges), ...current.future].slice(0, 50),
+    }));
+    setNodes(previous.nodes);
+    setEdges(previous.edges);
+    setSelectedEdgeId(null);
+  }, [edges, history.past, nodes, setEdges, setNodes]);
+
+  const redoCanvas = useCallback(() => {
+    const next = history.future[0];
+    if (!next) return;
+
+    setHistory((current) => ({
+      past: [...current.past, cloneCanvas(nodes, edges)].slice(-50),
+      future: current.future.slice(1),
+    }));
+    setNodes(next.nodes);
+    setEdges(next.edges);
+    setSelectedEdgeId(null);
+  }, [edges, history.future, nodes, setEdges, setNodes]);
+
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    if (changes.some(shouldTrackNodeChange)) recordCanvasSnapshot();
+    onNodesChange(changes);
+  }, [onNodesChange, recordCanvasSnapshot]);
+
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    if (changes.some(shouldTrackEdgeChange)) recordCanvasSnapshot();
+    onEdgesChange(changes);
+  }, [onEdgesChange, recordCanvasSnapshot]);
 
   const openEdgeModal = useCallback((params: Edge | Connection) => {
     const existing = 'id' in params ? edges.find((edge) => edge.id === (params as Edge).id) : undefined;
@@ -162,6 +322,7 @@ export function ReconciliationCanvas() {
     };
 
     const isEdit = 'id' in edgeModal.params && edges.some((edge) => edge.id === (edgeModal.params as Edge).id);
+    recordCanvasSnapshot();
     if (isEdit) {
       setEdges((cur) => cur.map((edge) =>
         edge.id === (edgeModal.params as Edge).id ? { ...edge, data, label: formatEdgeLabel(data) } : edge,
@@ -184,7 +345,7 @@ export function ReconciliationCanvas() {
       );
     }
     setEdgeModal(null);
-  }, [edgeModal, edges, setEdges]);
+  }, [edgeModal, edges, recordCanvasSnapshot, setEdges]);
 
   const onConnect = useCallback((params: Edge | Connection) => openEdgeModal(params), [openEdgeModal]);
   const onNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node<FlowNodeData>) => {
@@ -224,20 +385,23 @@ export function ReconciliationCanvas() {
   const addNodeAtPaneMenu = useCallback(() => {
     if (!paneMenu) return;
     const id = nextNodeId();
+    recordCanvasSnapshot();
     setNodes((cur) => [...cur, makeNode(id, paneMenu.flowX, paneMenu.flowY)]);
-  }, [paneMenu, setNodes]);
+  }, [paneMenu, recordCanvasSnapshot, setNodes]);
 
   const renameNode = useCallback((nodeId: string) => {
     const node = nodes.find((n) => n.id === nodeId);
     const next = window.prompt('Nome do nó:', node?.data.label ?? '');
     if (!next) return;
+    recordCanvasSnapshot();
     setNodes((cur) => cur.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, label: next } } : node));
-  }, [nodes, setNodes]);
+  }, [nodes, recordCanvasSnapshot, setNodes]);
 
   const deleteNode = useCallback((nodeId: string) => {
+    recordCanvasSnapshot();
     setNodes((cur) => cur.filter((node) => node.id !== nodeId));
     setEdges((cur) => cur.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
-  }, [setNodes, setEdges]);
+  }, [recordCanvasSnapshot, setNodes, setEdges]);
 
   function openSaveWorkspaceModal(mode: 'create' | 'update' = 'create') {
     const isUpdate = mode === 'update' && activeWorkspace;
@@ -278,6 +442,7 @@ export function ReconciliationCanvas() {
   function loadWorkspace(workspace: Workspace) {
     const nextNodes = (workspace.data.nodes ?? []) as Node<FlowNodeData>[];
     const nextEdges = (workspace.data.edges ?? []) as Edge<FlowEdgeData>[];
+    recordCanvasSnapshot();
     setNodes(nextNodes);
     setEdges(nextEdges);
     syncNodeSeq(nextNodes);
@@ -304,12 +469,14 @@ export function ReconciliationCanvas() {
       data: edge.data ? { ...edge.data } : edge.data,
     }));
 
+    recordCanvasSnapshot();
     setNodes(nextNodes);
     setEdges(nextEdges);
     syncNodeSeq(nextNodes);
     setActiveWorkspace(null);
     setWorkspaceDraft({ description: '', name: '' });
     setReconcileResult(null);
+    setSelectedEdgeId(null);
     setStatus(`${preset.name} carregado.`);
     window.requestAnimationFrame(() => {
       rfInstance.current?.fitView({ padding: 0.16 });
@@ -350,6 +517,7 @@ export function ReconciliationCanvas() {
         user: 'Usuário Atual',
         time: new Date().toISOString(),
         tagname: edgeNames,
+        tagmeasured: measurements.map((value) => value.toFixed(2)),
         tagreconciled: result.reconciled_values.map((value) => value.toFixed(2)),
         tagcorrection: result.corrections.map((value) => value.toFixed(2)),
         tagmatrix: constraints,
@@ -366,7 +534,8 @@ export function ReconciliationCanvas() {
       const correction = result.corrections[index] ?? 0;
       const measurement = measurements[index] ?? 0;
       const percent = (measurement !== 0 && !isNaN(correction)) ? (Math.abs(correction) / Math.abs(measurement)) * 100 : 0;
-      const data: FlowEdgeData = { ...edge.data!, correction, correctionPercent: percent };
+      const isOutlier = result.outlier_index === index;
+      const data: FlowEdgeData = { ...edge.data!, correction, correctionPercent: percent, isOutlier };
 
       return {
         ...edge,
@@ -374,8 +543,7 @@ export function ReconciliationCanvas() {
         label: formatEdgeLabel(data),
         style: {
           ...edge.style,
-          stroke: percent > 10 ? 'var(--danger)' : percent > 5 ? '#f59e0b' : 'var(--accent)',
-          strokeWidth: percent > 5 ? 3 : 2,
+          ...getCorrectionHeatmapStyle(percent, isOutlier),
         },
       };
     }));
@@ -386,34 +554,45 @@ export function ReconciliationCanvas() {
     if (file) await reconcile(file);
   }
 
+  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge<FlowEdgeData>) => {
+    setSelectedEdgeId(edge.id);
+  }, []);
+
   return (
     <div className="flex h-full overflow-hidden" style={pendingConn ? { cursor: 'crosshair' } : undefined}>
       <div className="flex flex-1 flex-col overflow-hidden">
-        <ReconciliationToolbar
+        <WorkspaceToolbar
           activeWorkspace={Boolean(activeWorkspace)}
-          onFileUpload={handleFileUpload}
           onLoadLayouts={() => setLoadModalOpen(true)}
-          onLoadPreset={loadCanvasPreset}
+          onRedo={redoCanvas}
           onReconcile={() => void reconcile()}
           onSaveNew={() => openSaveWorkspaceModal('create')}
-          onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
-          onToggleSummary={() => setSummaryVisible((visible) => !visible)}
+          onUndo={undoCanvas}
           onUpdateLayout={() => openSaveWorkspaceModal('update')}
-          pendingConnection={Boolean(pendingConn)}
-          presets={canvasPresets}
-          reconcileResult={reconcileResult}
-          sidebarVisible={sidebarVisible}
-          status={status}
-          summaryVisible={summaryVisible}
+          canRedo={history.future.length > 0}
+          canUndo={history.past.length > 0}
         />
 
-        <div ref={wrapperRef} className="flex-1 overflow-hidden">
+        <div ref={wrapperRef} className="relative flex-1 overflow-hidden">
+          <CanvasToolsPanel
+            onFileUpload={handleFileUpload}
+            onLoadPreset={loadCanvasPreset}
+            onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
+            onToggleSummary={() => setSummaryVisible((visible) => !visible)}
+            open={toolsOpen}
+            pendingConnection={Boolean(pendingConn)}
+            presets={canvasPresets}
+            setOpen={setToolsOpen}
+            sidebarVisible={sidebarVisible}
+            summaryVisible={summaryVisible}
+          />
+
           <ReactFlow
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
             onConnect={onConnect}
             onNodeMouseEnter={onNodeMouseEnter}
             onNodeMouseLeave={onNodeMouseLeave}
@@ -421,6 +600,7 @@ export function ReconciliationCanvas() {
             onNodeDoubleClick={onNodeDoubleClick}
             onNodeContextMenu={onNodeContextMenu}
             onEdgeDoubleClick={onEdgeDoubleClick}
+            onEdgeClick={onEdgeClick}
             onPaneClick={onPaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onInit={(instance) => { rfInstance.current = instance; }}
@@ -434,9 +614,11 @@ export function ReconciliationCanvas() {
       </div>
 
       {sidebarVisible && (
-        <ReconciliationSidebar
+        <WorkspaceSidebar
           edges={edges}
           matrix={adjacencyMatrix}
+          selectedEdgeId={selectedEdgeId}
+          status={status}
           summaryVisible={summaryVisible}
           reconcileResult={reconcileResult}
         />

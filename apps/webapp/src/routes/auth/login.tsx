@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/AuthStore';
 import { lazyRouteComponent } from '../../components/Route/LazyRoute';
 
 const LoginFormRoute = lazyRouteComponent(
-  () => import('../../modules/auth/LoginForm').then((module) => ({
+  () => import('./login/LoginForm').then((module) => ({
     default: module.LoginForm,
   })),
   'login',

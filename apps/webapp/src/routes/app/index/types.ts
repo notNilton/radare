@@ -10,6 +10,7 @@ export interface FlowEdgeData {
   tolerance: number;
   correction?: number;
   correctionPercent?: number;
+  isOutlier?: boolean;
 }
 
 export interface PendingConn {

@@ -1,8 +1,8 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import { getErrorMessage } from '../../lib/api-client';
-import { useCreateTag, useDeleteTag, useTags } from '../../hooks/useTags';
-import type { TagDraft, Tag } from '../../types';
+import { getErrorMessage } from '../../../lib/api-client';
+import { useCreateTag, useDeleteTag, useTags } from '../../../hooks/useTags';
+import type { TagDraft, Tag } from '../../../types';
 
 const emptyDraft: TagDraft = {
   name: '',

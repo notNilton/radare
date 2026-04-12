@@ -3,7 +3,7 @@ import { appLayoutRoute } from './_layout';
 import { lazyRouteComponent } from '../../components/Route/LazyRoute';
 
 const TagsManagerRoute = lazyRouteComponent(
-  () => import('../../modules/tags/TagsManager').then((module) => ({
+  () => import('./tags/TagsManager').then((module) => ({
     default: module.TagsManager,
   })),
   'tags',

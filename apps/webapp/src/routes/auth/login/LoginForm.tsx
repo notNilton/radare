@@ -1,9 +1,9 @@
 import { FormEvent, useState } from 'react';
 import { ArrowRight, LockKeyhole, User } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
-import { getErrorMessage } from '../../lib/api-client';
-import { useAuthStore } from '../../store/AuthStore';
-import { useLogin } from '../../hooks/useLogin';
+import { getErrorMessage } from '../../../lib/api-client';
+import { useAuthStore } from '../../../store/AuthStore';
+import { useLogin } from '../../../hooks/useLogin';
 
 export function LoginForm() {
   const navigate = useNavigate();

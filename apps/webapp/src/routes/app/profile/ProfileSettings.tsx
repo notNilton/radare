@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { getErrorMessage } from '../../lib/api-client';
-import { useProfile, useUpdatePassword, useUpdateProfile } from '../../hooks/useProfile';
-import type { UserProfile } from '../../types';
+import { getErrorMessage } from '../../../lib/api-client';
+import { useProfile, useUpdatePassword, useUpdateProfile } from '../../../hooks/useProfile';
+import type { UserProfile } from '../../../types';
 
 export function ProfileSettings() {
   const [user, setUser] = useState<UserProfile>({

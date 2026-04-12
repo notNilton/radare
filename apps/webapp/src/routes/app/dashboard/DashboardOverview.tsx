@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, BarChart3, DatabaseZap, Tags } from 'lucide-react';
-import { API_URL } from '../../config/env';
-import { useDashboardStats } from '../../hooks/useDashboardStats';
-import type { LiveValues } from '../../types';
+import { API_URL } from '../../../config/env';
+import { useDashboardStats } from '../../../hooks/useDashboardStats';
+import type { LiveValues } from '../../../types';
 
 export function DashboardOverview() {
   const [liveValues, setLiveValues] = useState<LiveValues | null>(null);

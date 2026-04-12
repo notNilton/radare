@@ -56,6 +56,7 @@ export interface ReconciliationEntry {
   user: string;
   time: string;
   tagname: string[];
+  tagmeasured?: string[];
   tagreconciled: string[];
   tagcorrection: string[];
   tagmatrix: number[][];
