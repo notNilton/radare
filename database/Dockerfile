@@ -3,11 +3,12 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
 COPY go.mod go.sum ./
-COPY database.go ./
-COPY migrator.go ./
+COPY coredb.go logdb.go migrator.go ./
 COPY cmd ./cmd
-COPY migrations ./migrations
-COPY seeds ./seeds
+COPY coredb_migrations ./coredb_migrations
+COPY logdb_migrations  ./logdb_migrations
+COPY coredb_seeds      ./coredb_seeds
+COPY logdb_seeds       ./logdb_seeds
 
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -o migrate ./cmd/migrate
@@ -18,8 +19,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/migrate ./migrate
-COPY --from=builder /app/migrations ./migrations
-COPY --from=builder /app/seeds ./seeds
+COPY --from=builder /app/migrate .
 
 ENTRYPOINT ["./migrate"]
