@@ -103,6 +103,27 @@ func OptionsHandler(next http.Handler) http.Handler {
 	})
 }
 
+// RequireRole returns a middleware that allows only users whose role is in the
+// provided list. Must be applied after NewAuthMiddleware so the role is already
+// present in the request context.
+func RequireRole(roles ...string) func(http.Handler) http.Handler {
+	allowed := make(map[string]bool, len(roles))
+	for _, r := range roles {
+		allowed[r] = true
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			role, _ := r.Context().Value("role").(string)
+			if !allowed[role] {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // NewAuthMiddleware creates a new authentication middleware with a provided JWT secret.
 // This function acts as a factory, decoupling the middleware from global configuration
 // and making it more modular and testable. The returned middleware validates JWTs
@@ -140,8 +161,10 @@ func NewAuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Inject user ID into the request context for downstream handlers.
+			// Inject user ID, role and tenant ID into the request context for downstream handlers.
 			ctx := context.WithValue(r.Context(), "userID", claims["user_id"])
+			ctx = context.WithValue(ctx, "role", claims["role"])
+			ctx = context.WithValue(ctx, "tenantID", claims["tenant_id"])
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
