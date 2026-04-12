@@ -13,13 +13,30 @@ import (
 	"gorm.io/gorm"
 )
 
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
+// ── Embedded file systems ─────────────────────────────────────────────────────
 
-//go:embed seeds/*.sql
-var seedsFS embed.FS
+//go:embed coredb_migrations/*.sql
+var coredbMigrationsFS embed.FS
 
+//go:embed logdb_migrations/*.sql
+var logdbMigrationsFS embed.FS
+
+//go:embed coredb_seeds/*.sql
+var coredbSeedsFS embed.FS
+
+//go:embed logdb_seeds/*.sql
+var logdbSeedsFS embed.FS
+
+// migrationsTable tracks applied CoreDB migrations.
 const migrationsTable = "schema_migrations"
+
+// logMigrationsTable tracks applied LogDB migrations separately.
+// When LogDB is aliased to CoreDB (LOG_DB_URL unset), both sets of migrations
+// share the same Postgres instance but use different tracking tables so that
+// CoreDB version numbers don't block LogDB migrations from running.
+const logMigrationsTable = "log_schema_migrations"
+
+// ── Domain types ──────────────────────────────────────────────────────────────
 
 type Migration struct {
 	Version int
@@ -34,214 +51,226 @@ type Seed struct {
 	SQL     string
 }
 
-func MigrateUp(db *gorm.DB) error {
-	migrations, err := loadMigrations()
-	if err != nil {
-		return err
-	}
+// ── CoreDB migration API ──────────────────────────────────────────────────────
 
-	if err := ensureMigrationsTable(db); err != nil {
-		return err
-	}
-
-	applied, err := appliedVersions(db)
-	if err != nil {
-		return err
-	}
-
-	for _, migration := range migrations {
-		if applied[migration.Version] {
-			continue
-		}
-
-		if err := executeMigrationUp(db, migration); err != nil {
-			return fmt.Errorf("apply migration %03d_%s: %w", migration.Version, migration.Name, err)
-		}
-	}
-
-	return nil
+// CoreMigrateUp applies all pending CoreDB migrations.
+func CoreMigrateUp(db *gorm.DB) error {
+	return MigrateUpWithFS(db, coredbMigrationsFS, "coredb_migrations")
 }
 
-func MigrateDown(db *gorm.DB, steps int) error {
-	if steps <= 0 {
-		steps = 1
-	}
-
-	migrations, err := loadMigrations()
-	if err != nil {
-		return err
-	}
-
-	if err := ensureMigrationsTable(db); err != nil {
-		return err
-	}
-
-	applied, err := appliedVersions(db)
-	if err != nil {
-		return err
-	}
-
-	var pendingRollback []Migration
-	for _, migration := range migrations {
-		if applied[migration.Version] {
-			pendingRollback = append(pendingRollback, migration)
-		}
-	}
-
-	sort.Slice(pendingRollback, func(i, j int) bool {
-		return pendingRollback[i].Version > pendingRollback[j].Version
-	})
-
-	if len(pendingRollback) < steps {
-		steps = len(pendingRollback)
-	}
-
-	for _, migration := range pendingRollback[:steps] {
-		if err := executeMigrationDown(db, migration); err != nil {
-			return fmt.Errorf("rollback migration %03d_%s: %w", migration.Version, migration.Name, err)
-		}
-	}
-
-	return nil
+// CoreMigrateDown rolls back `steps` CoreDB migrations.
+func CoreMigrateDown(db *gorm.DB, steps int) error {
+	return MigrateDownWithFS(db, coredbMigrationsFS, "coredb_migrations", steps)
 }
 
+// CoreSeedUp seeds the CoreDB with bootstrap fixtures.
+func CoreSeedUp(db *gorm.DB) error {
+	return seedUpWithFS(db, coredbSeedsFS, "coredb_seeds")
+}
+
+// ── LogDB migration API ───────────────────────────────────────────────────────
+
+// LogMigrateUp applies all pending LogDB migrations.
+// Uses log_schema_migrations so version numbers don't collide with CoreDB's
+// schema_migrations when LOG_DB_URL is unset and both DBs share the same instance.
+func LogMigrateUp(db *gorm.DB) error {
+	return migrateUpWithTable(db, logdbMigrationsFS, "logdb_migrations", logMigrationsTable)
+}
+
+// LogMigrateDown rolls back `steps` LogDB migrations.
+func LogMigrateDown(db *gorm.DB, steps int) error {
+	return migrateDownWithTable(db, logdbMigrationsFS, "logdb_migrations", steps, logMigrationsTable)
+}
+
+// LogSeedUp seeds the LogDB with demo/development observability fixtures.
+func LogSeedUp(db *gorm.DB) error {
+	return seedUpWithFS(db, logdbSeedsFS, "logdb_seeds")
+}
+
+// ── Version inspection ────────────────────────────────────────────────────────
+
+// CurrentVersion returns the highest applied migration version for the given DB.
 func CurrentVersion(db *gorm.DB) (int, error) {
 	if err := ensureMigrationsTable(db); err != nil {
 		return 0, err
 	}
 
-	type row struct {
-		Version int
-	}
-
+	type row struct{ Version int }
 	var result row
 	err := db.Raw(
-		fmt.Sprintf("SELECT version FROM %s ORDER BY version DESC LIMIT 1", migrationsTable),
+		fmt.Sprintf("SELECT COALESCE(MAX(version), 0) AS version FROM %s", migrationsTable),
 	).Scan(&result).Error
-	if err != nil {
-		return 0, err
-	}
-
-	return result.Version, nil
+	return result.Version, err
 }
 
-func SeedUp(db *gorm.DB) error {
-	seeds, err := loadSeeds()
+// ── Generic FS-based migration engine ────────────────────────────────────────
+
+// MigrateUpWithFS applies all pending migrations from migFS/dir against db.
+func MigrateUpWithFS(db *gorm.DB, migFS embed.FS, dir string) error {
+	return migrateUpWithTable(db, migFS, dir, migrationsTable)
+}
+
+// MigrateDownWithFS rolls back `steps` migrations from migFS/dir against db.
+func MigrateDownWithFS(db *gorm.DB, migFS embed.FS, dir string, steps int) error {
+	return migrateDownWithTable(db, migFS, dir, steps, migrationsTable)
+}
+
+func migrateUpWithTable(db *gorm.DB, migFS embed.FS, dir string, table string) error {
+	migrations, err := loadMigrationsFromFS(migFS, dir)
+	if err != nil {
+		return err
+	}
+	if err := ensureMigrationsTableNamed(db, table); err != nil {
+		return err
+	}
+	applied, err := appliedVersionsFromTable(db, table)
+	if err != nil {
+		return err
+	}
+	for _, m := range migrations {
+		if applied[m.Version] {
+			continue
+		}
+		if err := executeMigrationUpInTable(db, m, table); err != nil {
+			return fmt.Errorf("apply migration %03d_%s: %w", m.Version, m.Name, err)
+		}
+	}
+	return nil
+}
+
+func migrateDownWithTable(db *gorm.DB, migFS embed.FS, dir string, steps int, table string) error {
+	if steps <= 0 {
+		steps = 1
+	}
+	migrations, err := loadMigrationsFromFS(migFS, dir)
+	if err != nil {
+		return err
+	}
+	if err := ensureMigrationsTableNamed(db, table); err != nil {
+		return err
+	}
+	applied, err := appliedVersionsFromTable(db, table)
 	if err != nil {
 		return err
 	}
 
-	for _, seed := range seeds {
-		if strings.TrimSpace(seed.SQL) == "" {
-			continue
-		}
-		if err := db.Exec(seed.SQL).Error; err != nil {
-			return fmt.Errorf("apply seed %03d_%s: %w", seed.Version, seed.Name, err)
+	var toRollback []Migration
+	for _, m := range migrations {
+		if applied[m.Version] {
+			toRollback = append(toRollback, m)
 		}
 	}
-
+	sort.Slice(toRollback, func(i, j int) bool { return toRollback[i].Version > toRollback[j].Version })
+	if len(toRollback) < steps {
+		steps = len(toRollback)
+	}
+	for _, m := range toRollback[:steps] {
+		if err := executeMigrationDownInTable(db, m, table); err != nil {
+			return fmt.Errorf("rollback migration %03d_%s: %w", m.Version, m.Name, err)
+		}
+	}
 	return nil
 }
 
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
 func ensureMigrationsTable(db *gorm.DB) error {
+	return ensureMigrationsTableNamed(db, migrationsTable)
+}
+
+func ensureMigrationsTableNamed(db *gorm.DB, table string) error {
 	return db.Exec(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			version BIGINT PRIMARY KEY,
-			name TEXT NOT NULL,
+			version    BIGINT      PRIMARY KEY,
+			name       TEXT        NOT NULL,
 			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)
-	`, migrationsTable)).Error
+		)`, table)).Error
 }
 
 func appliedVersions(db *gorm.DB) (map[int]bool, error) {
-	type row struct {
-		Version int
-	}
+	return appliedVersionsFromTable(db, migrationsTable)
+}
 
+func appliedVersionsFromTable(db *gorm.DB, table string) (map[int]bool, error) {
+	type row struct{ Version int }
 	var rows []row
-	if err := db.Raw(fmt.Sprintf("SELECT version FROM %s", migrationsTable)).Scan(&rows).Error; err != nil {
+	if err := db.Raw(fmt.Sprintf("SELECT version FROM %s", table)).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-
 	result := make(map[int]bool, len(rows))
-	for _, row := range rows {
-		result[row.Version] = true
+	for _, r := range rows {
+		result[r.Version] = true
 	}
-
 	return result, nil
 }
 
-func executeMigrationUp(db *gorm.DB, migration Migration) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		if strings.TrimSpace(migration.UpSQL) == "" {
-			return fmt.Errorf("missing up SQL")
-		}
+func executeMigrationUp(db *gorm.DB, m Migration) error {
+	return executeMigrationUpInTable(db, m, migrationsTable)
+}
 
-		if err := tx.Exec(migration.UpSQL).Error; err != nil {
+func executeMigrationUpInTable(db *gorm.DB, m Migration, table string) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if strings.TrimSpace(m.UpSQL) == "" {
+			return fmt.Errorf("missing up SQL for migration %d", m.Version)
+		}
+		if err := tx.Exec(m.UpSQL).Error; err != nil {
 			return err
 		}
-
 		return tx.Exec(
-			fmt.Sprintf("INSERT INTO %s (version, name, applied_at) VALUES (?, ?, ?)", migrationsTable),
-			migration.Version,
-			migration.Name,
-			time.Now().UTC(),
+			fmt.Sprintf("INSERT INTO %s (version, name, applied_at) VALUES (?, ?, ?)", table),
+			m.Version, m.Name, time.Now().UTC(),
 		).Error
 	})
 }
 
-func executeMigrationDown(db *gorm.DB, migration Migration) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		if strings.TrimSpace(migration.DownSQL) == "" {
-			return fmt.Errorf("missing down SQL")
-		}
+func executeMigrationDown(db *gorm.DB, m Migration) error {
+	return executeMigrationDownInTable(db, m, migrationsTable)
+}
 
-		if err := tx.Exec(migration.DownSQL).Error; err != nil {
+func executeMigrationDownInTable(db *gorm.DB, m Migration, table string) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if strings.TrimSpace(m.DownSQL) == "" {
+			return fmt.Errorf("missing down SQL for migration %d", m.Version)
+		}
+		if err := tx.Exec(m.DownSQL).Error; err != nil {
 			return err
 		}
-
 		return tx.Exec(
-			fmt.Sprintf("DELETE FROM %s WHERE version = ?", migrationsTable),
-			migration.Version,
+			fmt.Sprintf("DELETE FROM %s WHERE version = ?", table),
+			m.Version,
 		).Error
 	})
 }
 
-func loadMigrations() ([]Migration, error) {
-	entries, err := fs.ReadDir(migrationsFS, "migrations")
+func loadMigrationsFromFS(migFS embed.FS, dir string) ([]Migration, error) {
+	entries, err := fs.ReadDir(migFS, dir)
 	if err != nil {
 		return nil, err
 	}
 
 	type partial struct {
-		version int
-		name    string
-		upSQL   string
-		downSQL string
+		version        int
+		name           string
+		upSQL, downSQL string
 	}
-
 	parts := map[string]*partial{}
 
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
-
 		version, name, direction, err := parseVersionedName(entry.Name())
 		if err != nil {
 			return nil, err
 		}
-
-		content, err := fs.ReadFile(migrationsFS, filepath.ToSlash(filepath.Join("migrations", entry.Name())))
+		content, err := fs.ReadFile(migFS, filepath.ToSlash(filepath.Join(dir, entry.Name())))
 		if err != nil {
 			return nil, err
 		}
-
 		key := fmt.Sprintf("%03d_%s", version, name)
 		if parts[key] == nil {
 			parts[key] = &partial{version: version, name: name}
 		}
-
 		switch direction {
 		case "up":
 			parts[key].upSQL = string(content)
@@ -251,56 +280,47 @@ func loadMigrations() ([]Migration, error) {
 	}
 
 	migrations := make([]Migration, 0, len(parts))
-	for _, part := range parts {
+	for _, p := range parts {
 		migrations = append(migrations, Migration{
-			Version: part.version,
-			Name:    part.name,
-			UpSQL:   part.upSQL,
-			DownSQL: part.downSQL,
+			Version: p.version, Name: p.name,
+			UpSQL: p.upSQL, DownSQL: p.downSQL,
 		})
 	}
-
-	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].Version < migrations[j].Version
-	})
-
+	sort.Slice(migrations, func(i, j int) bool { return migrations[i].Version < migrations[j].Version })
 	return migrations, nil
 }
 
-func loadSeeds() ([]Seed, error) {
-	entries, err := fs.ReadDir(seedsFS, "seeds")
+func seedUpWithFS(db *gorm.DB, seedFS embed.FS, dir string) error {
+	entries, err := fs.ReadDir(seedFS, dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	var seeds []Seed
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
-
 		version, name, _, err := parseVersionedName(entry.Name())
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		content, err := fs.ReadFile(seedsFS, filepath.ToSlash(filepath.Join("seeds", entry.Name())))
+		content, err := fs.ReadFile(seedFS, filepath.ToSlash(filepath.Join(dir, entry.Name())))
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		seeds = append(seeds, Seed{
-			Version: version,
-			Name:    name,
-			SQL:     string(content),
-		})
+		seeds = append(seeds, Seed{Version: version, Name: name, SQL: string(content)})
 	}
+	sort.Slice(seeds, func(i, j int) bool { return seeds[i].Version < seeds[j].Version })
 
-	sort.Slice(seeds, func(i, j int) bool {
-		return seeds[i].Version < seeds[j].Version
-	})
-
-	return seeds, nil
+	for _, s := range seeds {
+		if strings.TrimSpace(s.SQL) == "" {
+			continue
+		}
+		if err := db.Exec(s.SQL).Error; err != nil {
+			return fmt.Errorf("apply seed %03d_%s: %w", s.Version, s.Name, err)
+		}
+	}
+	return nil
 }
 
 func parseVersionedName(filename string) (int, string, string, error) {
@@ -309,18 +329,13 @@ func parseVersionedName(filename string) (int, string, string, error) {
 	if len(parts) != 2 {
 		return 0, "", "", fmt.Errorf("invalid versioned filename %q", filename)
 	}
-
-	versionAndName := parts[0]
-	direction := parts[1]
-	chunks := strings.SplitN(versionAndName, "_", 2)
+	chunks := strings.SplitN(parts[0], "_", 2)
 	if len(chunks) != 2 {
 		return 0, "", "", fmt.Errorf("invalid migration identifier %q", filename)
 	}
-
 	version, err := strconv.Atoi(chunks[0])
 	if err != nil {
 		return 0, "", "", fmt.Errorf("invalid migration version in %q: %w", filename, err)
 	}
-
-	return version, chunks[1], direction, nil
+	return version, chunks[1], parts[1], nil
 }
