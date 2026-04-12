@@ -3,18 +3,19 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
+	"radare-datarecon/apps/backend/internal/hub"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // In production, refine this
+		return true // In production, refine this to allowed origins
 	},
 }
 
-// HandleWebsocket manages real-time data streaming
+// HandleWebsocket upgrades the connection, registers it with the hub,
+// and keeps it alive until the client disconnects.
 func HandleWebsocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -23,23 +24,17 @@ func HandleWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	hub.Default.Register(conn)
+	defer hub.Default.Unregister(conn)
+
 	slog.Info("New websocket client connected")
 
-	// Ticker to send data every second
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
+	// Drain inbound messages (ping/pong, close frames).
+	// We only push from server → client, so reads are just for liveness.
 	for {
-		select {
-		case <-ticker.C:
-			mutex.RLock()
-			data := currentValues
-			mutex.RUnlock()
-
-			if err := conn.WriteJSON(data); err != nil {
-				slog.Warn("Websocket client disconnected", "error", err)
-				return
-			}
+		if _, _, err := conn.ReadMessage(); err != nil {
+			slog.Debug("Websocket client disconnected", "error", err)
+			return
 		}
 	}
 }

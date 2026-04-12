@@ -12,7 +12,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) error {
 	dbStatus := "connected"
 
 	// Verifica a conexão com o banco de dados.
-	sqlDB, err := database.DB.DB()
+	sqlDB, err := database.CoreDB.DB()
 	if err != nil {
 		status = "error"
 		dbStatus = "disconnected"

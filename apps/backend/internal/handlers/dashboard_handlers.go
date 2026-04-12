@@ -25,18 +25,18 @@ func GetDashboardStats(w http.ResponseWriter, r *http.Request) error {
 	var stats DashboardStats
 
 	// Conta total de reconciliações
-	database.DB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID)).Count(&stats.TotalReconciliations)
+	database.CoreDB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID)).Count(&stats.TotalReconciliations)
 
 	// Conta consistentes
 	var consistentCount int64
-	database.DB.Model(&models.Reconciliation{}).Where("user_id = ? AND consistency_status = ?", uint(userID), "Consistente").Count(&consistentCount)
+	database.CoreDB.Model(&models.Reconciliation{}).Where("user_id = ? AND consistency_status = ?", uint(userID), "Consistente").Count(&consistentCount)
 
 	if stats.TotalReconciliations > 0 {
 		stats.ConsistentPercentage = (float64(consistentCount) / float64(stats.TotalReconciliations)) * 100
 	}
 
 	// Conta tags
-	database.DB.Model(&models.Tag{}).Count(&stats.TotalTags)
+	database.CoreDB.Model(&models.Tag{}).Count(&stats.TotalTags)
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(stats)
