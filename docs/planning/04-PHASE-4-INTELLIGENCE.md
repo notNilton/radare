@@ -45,31 +45,34 @@ A Fase 4 transforma o **Radare** de uma ferramenta de cálculo volátil em um si
     - [x] Identificar a tag com maior contribuição para o erro (outlier).
 
 ### 🎨 Frontend
-- [ ] **Indicador de Qualidade:**
-    - [ ] Badge visual no Canvas ou barra lateral indicando se a reconciliação é "Estatisticamente Válida" ou "Suspeita de Erro Bruto".
-- [ ] **Heatmaps:**
-    - [ ] Colorir as arestas (edges) com tons de vermelho/laranja baseando-se no percentual de correção aplicada (Ex: >10% de correção = Alerta Visual).
+- [x] **Indicador de Qualidade:**
+    - [x] Badge visual no Canvas ou barra lateral indicando se a reconciliação é "Estatisticamente Válida" ou "Suspeita de Erro Bruto".
+- [x] **Heatmaps:**
+    - [x] Colorir as arestas (edges) com tons de vermelho/laranja baseando-se no percentual de correção aplicada (Ex: >10% de correção = Alerta Visual).
+    - [x] Destacar a corrente com maior contribuição estatística como outlier visual.
+- [x] **Refinamento de UX:**
+    - [x] Undo/Redo para alterações do Canvas.
 
 ---
 
 ## 3. Visualização de Tendências (Trends)
 
 ### 🎨 Frontend
-- [ ] **Mini-Gráfico de Tendência:**
-    - [ ] Ao selecionar uma aresta ou tag, exibir um gráfico (Sparkline) mostrando o histórico de `Medido` vs `Reconciliado` dos últimos 10-20 registros.
-- [ ] **Biblioteca:** Utilizar `Recharts` ou `Chart.js` (escolher a mais leve).
+- [x] **Mini-Gráfico de Tendência:**
+    - [x] Ao selecionar uma aresta ou tag, exibir um gráfico (Sparkline) mostrando o histórico de `Medido` vs `Reconciliado` dos últimos 10-20 registros.
+- [x] **Biblioteca:** Usar SVG local para manter o bundle leve, sem dependência extra de gráficos nesta etapa.
 
 ---
 
 ## 📅 Cronograma Sugerido
 
 - [x] **Semana 1:** Implementação do CRUD de Workspaces (Backend + DB + UI Básica).
-- [ ] **Semana 2:** Lógica de Qui-quadrado no Backend e integração de Outliers.
-- [ ] **Semana 3:** Heatmaps de correção no Canvas e Refinamento de UX (Undo/Redo).
-- [ ] **Semana 4:** Gráficos de tendência e validação final.
+- [x] **Semana 2:** Lógica de Qui-quadrado no Backend e integração de Outliers.
+- [x] **Semana 3:** Heatmaps de correção no Canvas e Refinamento de UX (Undo/Redo).
+- [x] **Semana 4:** Gráficos de tendência e validação final.
 
 ---
 
 ## 🧪 Estratégia de Testes
-- [ ] **Backend:** Testes unitários para a função de cálculo do Qui-quadrado com matrizes conhecidas.
+- [x] **Backend:** Testes unitários para a função de cálculo do Qui-quadrado com matrizes conhecidas.
 - [ ] **Frontend:** Teste de integração para salvar/carregar um grafo complexo sem perda de dados.
