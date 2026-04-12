@@ -49,7 +49,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("open gorm connection: %v", err)
 	}
 
-	if err := database.MigrateUp(db); err != nil {
+	if err := database.CoreMigrateUp(db); err != nil {
 		t.Fatalf("apply test migrations: %v", err)
 	}
 
