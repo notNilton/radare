@@ -80,6 +80,44 @@
   color-scheme: light;
 }
 
+/* ─── Industrial theme — steel + teal accents ─────────────────────────────── */
+.industrial {
+  --bg:        #0b0f14;
+  --surface:   #141a21;
+  --panel:     #1b2430;
+  --border:    rgba(255,255,255,0.10);
+  --border-md: rgba(255,255,255,0.16);
+
+  --tx-1:      #e2e8f0;
+  --tx-2:      #94a3b8;
+  --tx-3:      #475569;
+
+  --accent:    #14b8a6;
+  --accent-bg: rgba(20,184,166,0.12);
+  --accent-bd: rgba(20,184,166,0.35);
+
+  --danger:    #f87171;
+  --danger-bg: rgba(248,113,113,0.10);
+
+  --node-src:  rgba(20,184,166,0.18);
+  --node-src-b:#0f766e;
+  --node-snk:  rgba(59,130,246,0.18);
+  --node-snk-b:#1d4ed8;
+  --node-spl:  rgba(16,185,129,0.16);
+  --node-spl-b:#047857;
+  --node-mrg:  rgba(234,179,8,0.16);
+  --node-mrg-b:#a16207;
+  --node-prc:  rgba(71,85,105,0.60);
+  --node-prc-b:#475569;
+
+  --canvas-bg: #0b0f14;
+  --canvas-dot:#1b2430;
+
+  --rf-bg:     #0b0f14;
+
+  color-scheme: dark;
+}
+
 /* ─── Base ──────────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
