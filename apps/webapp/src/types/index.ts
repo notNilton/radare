@@ -1,14 +1,28 @@
+export type UserRole = 'admin' | 'operador' | 'auditor';
+export type UserTheme = 'dark' | 'light' | 'industrial';
+
 export interface User {
   id: number;
   username: string;
   name?: string;
   contact_email?: string;
   profile_icon?: string;
+  role?: UserRole;
+  theme?: UserTheme;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  name: string;
+  contact_email: string;
+  role: UserRole;
 }
 
 export interface UserProfile {
   name: string;
   contact_email: string;
+  theme?: UserTheme;
   address?: {
     street?: string;
     city?: string;
@@ -67,6 +81,7 @@ export interface ReconcilePayload {
   constraints: number[][];
   measurements: number[];
   tolerances: number[];
+  workspace_id?: number;
 }
 
 export interface ReconcileResult {
