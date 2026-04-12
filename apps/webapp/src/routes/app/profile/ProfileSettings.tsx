@@ -1,12 +1,14 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { getErrorMessage } from '../../../lib/api-client';
 import { useProfile, useUpdatePassword, useUpdateProfile } from '../../../hooks/useProfile';
+import { useThemeStore } from '../../../store/ThemeStore';
 import type { UserProfile } from '../../../types';
 
 export function ProfileSettings() {
   const [user, setUser] = useState<UserProfile>({
     name: '',
     contact_email: '',
+    theme: 'dark',
     address: {},
   });
   const [passwords, setPasswords] = useState({
@@ -18,12 +20,25 @@ export function ProfileSettings() {
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const { data: profile, isLoading } = useProfile();
+  const { setTheme, theme } = useThemeStore();
 
   useEffect(() => {
     if (profile) {
-      setUser(profile);
+      setUser({
+        ...profile,
+        name: profile.name ?? '',
+        contact_email: profile.contact_email ?? '',
+        address: {
+          street: profile.address?.street ?? '',
+          city: profile.address?.city ?? '',
+          state: profile.address?.state ?? '',
+        },
+      });
+      if (profile.theme && profile.theme !== theme) {
+        setTheme(profile.theme);
+      }
     }
-  }, [profile]);
+  }, [profile, setTheme, theme]);
 
   const updateProfileMutation = useUpdateProfile();
   const updatePasswordMutation = useUpdatePassword();
@@ -141,6 +156,33 @@ export function ProfileSettings() {
                 setUser((current) => ({ ...current, contact_email: value }))
               }
             />
+            <label>
+              <span className="block text-[10px] uppercase tracking-widest" style={{ color: 'var(--tx-3)' }}>
+                Tema preferido
+              </span>
+              <select
+                value={user.theme ?? 'dark'}
+                onChange={(event) => {
+                  const next = event.target.value as UserProfile['theme'];
+                  setUser((current) => ({ ...current, theme: next }));
+                  if (next) setTheme(next);
+                }}
+                style={{
+                  marginTop: 6,
+                  padding: '8px 10px',
+                  fontSize: 12,
+                  background: 'var(--panel)',
+                  border: '1px solid var(--border-md)',
+                  borderRadius: 4,
+                  color: 'var(--tx-1)',
+                  width: '100%',
+                }}
+              >
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="industrial">Industrial</option>
+              </select>
+            </label>
             <ProfileField
               label="Rua"
               value={user.address?.street ?? ''}
