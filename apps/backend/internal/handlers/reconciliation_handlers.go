@@ -17,6 +17,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 	"radare-datarecon/apps/backend/internal/hub"
+	"radare-datarecon/apps/backend/internal/workers"
 )
 
 // CurrentValues representa uma estrutura de dados de exemplo com dois valores inteiros.
