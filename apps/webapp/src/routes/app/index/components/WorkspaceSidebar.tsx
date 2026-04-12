@@ -207,10 +207,26 @@ function Sparkline({ points }: { points: { measured: number; reconciled: number 
 }
 
 function WorkspaceSummary() {
-  const latest = (() => {
-    try { return JSON.parse(localStorage.getItem('reconciliationData') || '[]')[0] as { tagreconciled?: string[]; tagcorrection?: string[] } | undefined; }
-    catch { return undefined; }
-  })();
+  const [latest, setLatest] = useState<{ tagreconciled?: string[]; tagcorrection?: string[] } | undefined>();
+
+  useEffect(() => {
+    const read = () => {
+      try {
+        const data = JSON.parse(localStorage.getItem('reconciliationData') || '[]');
+        setLatest(data[0]);
+      } catch {
+        setLatest(undefined);
+      }
+    };
+    read();
+    window.addEventListener('localStorageUpdated', read);
+    window.addEventListener('storage', read);
+    return () => {
+      window.removeEventListener('localStorageUpdated', read);
+      window.removeEventListener('storage', read);
+    };
+  }, []);
+
   const sec: React.CSSProperties = { padding: '12px 14px' };
   const lbl: React.CSSProperties = { fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--tx-3)', marginBottom: 8 };
   const card: React.CSSProperties = { padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 4, marginBottom: 4, background: 'var(--panel)' };

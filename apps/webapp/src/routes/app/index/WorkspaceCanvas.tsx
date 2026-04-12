@@ -32,6 +32,7 @@ import { WorkspaceLoadModal, WorkspaceSaveModal } from './components/WorkspaceMo
 import { formatEdgeLabel, generateEdgeName, getCorrectionHeatmapStyle, makeNode, nextNodeId, syncNodeSeq } from './flowUtils';
 import { canvasPresets, initialEdges, initialNodes } from './presets';
 import type { CanvasPreset, EdgeModalState, FlowEdgeData, FlowNodeData, PendingConn, WorkspaceDraft } from './types';
+import { createWorkspaceFlowData, restoreWorkspaceFlowData } from './workspaceFlow';
 
 export { FlowNode };
 
@@ -187,6 +188,12 @@ export function WorkspaceCanvas() {
   const hoveredNodeId = useRef<string | null>(null);
   const suppressNextCtx = useRef(false);
 
+  // Refs to keep track of current state without triggering re-renders in snapshots
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
+
   const reconcileMutation = useReconcile();
   const { data: workspaces = [], isLoading: workspacesLoading } = useWorkspaces();
   const saveWorkspaceMutation = useSaveWorkspace();
@@ -196,13 +203,13 @@ export function WorkspaceCanvas() {
   const adjacencyMatrix = useAdjacencyMatrix(nodes, edges);
 
   const recordCanvasSnapshot = useCallback(() => {
-    const snapshot = cloneCanvas(nodes, edges);
+    const snapshot = cloneCanvas(nodesRef.current, edgesRef.current);
     setHistory((current) => {
       const last = current.past[current.past.length - 1];
       if (last && JSON.stringify(last) === JSON.stringify(snapshot)) return current;
       return { past: [...current.past, snapshot].slice(-50), future: [] };
     });
-  }, [edges, nodes]);
+  }, []);
 
   const undoCanvas = useCallback(() => {
     const previous = history.past[history.past.length - 1];
@@ -210,35 +217,33 @@ export function WorkspaceCanvas() {
 
     setHistory((current) => ({
       past: current.past.slice(0, -1),
-      future: [cloneCanvas(nodes, edges), ...current.future].slice(0, 50),
+      future: [cloneCanvas(nodesRef.current, edgesRef.current), ...current.future].slice(0, 50),
     }));
     setNodes(previous.nodes);
     setEdges(previous.edges);
     setSelectedEdgeId(null);
-  }, [edges, history.past, nodes, setEdges, setNodes]);
+  }, [history.past, setEdges, setNodes]);
 
   const redoCanvas = useCallback(() => {
     const next = history.future[0];
     if (!next) return;
 
     setHistory((current) => ({
-      past: [...current.past, cloneCanvas(nodes, edges)].slice(-50),
+      past: [...current.past, cloneCanvas(nodesRef.current, edgesRef.current)].slice(-50),
       future: current.future.slice(1),
     }));
     setNodes(next.nodes);
     setEdges(next.edges);
     setSelectedEdgeId(null);
-  }, [edges, history.future, nodes, setEdges, setNodes]);
+  }, [history.future, setEdges, setNodes]);
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    if (changes.some(shouldTrackNodeChange)) recordCanvasSnapshot();
     onNodesChange(changes);
-  }, [onNodesChange, recordCanvasSnapshot]);
+  }, [onNodesChange]);
 
   const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
-    if (changes.some(shouldTrackEdgeChange)) recordCanvasSnapshot();
     onEdgesChange(changes);
-  }, [onEdgesChange, recordCanvasSnapshot]);
+  }, [onEdgesChange]);
 
   const openEdgeModal = useCallback((params: Edge | Connection) => {
     const existing = 'id' in params ? edges.find((edge) => edge.id === (params as Edge).id) : undefined;
@@ -428,7 +433,11 @@ export function WorkspaceCanvas() {
         id: workspaceDraft.id,
         name: workspaceDraft.name.trim(),
         description: workspaceDraft.description.trim(),
-        data: rfInstance.current.toObject(),
+        data: createWorkspaceFlowData(rfInstance.current.toObject() as {
+          edges: Edge<FlowEdgeData>[];
+          nodes: Node<FlowNodeData>[];
+          viewport?: { x: number; y: number; zoom: number };
+        }),
       });
       setWorkspaceDraft({ description: saved.description, id: saved.ID, name: saved.name });
       setActiveWorkspace({ description: saved.description, id: saved.ID, name: saved.name });
@@ -440,8 +449,7 @@ export function WorkspaceCanvas() {
   }
 
   function loadWorkspace(workspace: Workspace) {
-    const nextNodes = (workspace.data.nodes ?? []) as Node<FlowNodeData>[];
-    const nextEdges = (workspace.data.edges ?? []) as Edge<FlowEdgeData>[];
+    const { edges: nextEdges, nodes: nextNodes, viewport } = restoreWorkspaceFlowData(workspace.data);
     recordCanvasSnapshot();
     setNodes(nextNodes);
     setEdges(nextEdges);
@@ -451,9 +459,9 @@ export function WorkspaceCanvas() {
     setLoadModalOpen(false);
     setStatus(`Layout "${workspace.name}" carregado.`);
 
-    if (workspace.data.viewport) {
+    if (viewport) {
       window.requestAnimationFrame(() => {
-        void rfInstance.current?.setViewport(workspace.data.viewport!);
+        void rfInstance.current?.setViewport(viewport);
       });
     }
   }
@@ -509,7 +517,12 @@ export function WorkspaceCanvas() {
       }
 
       const constraints = adjacencyMatrix;
-      const result = await reconcileMutation.mutateAsync({ measurements, tolerances, constraints });
+      const result = await reconcileMutation.mutateAsync({
+        measurements,
+        tolerances,
+        constraints,
+        workspace_id: activeWorkspace?.id,
+      });
       setReconcileResult(result);
       applyReconciliationToEdges(result, measurements);
       saveReconciliationEntry({
@@ -603,6 +616,10 @@ export function WorkspaceCanvas() {
             onEdgeClick={onEdgeClick}
             onPaneClick={onPaneClick}
             onPaneContextMenu={onPaneContextMenu}
+            onNodeDragStop={recordCanvasSnapshot}
+            onEdgesDelete={recordCanvasSnapshot}
+            onNodesDelete={recordCanvasSnapshot}
+            onSelectionDragStop={recordCanvasSnapshot}
             onInit={(instance) => { rfInstance.current = instance; }}
             fitView
             style={{ background: 'var(--canvas-bg)' }}
