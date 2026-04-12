@@ -1,33 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, DatabaseZap, Tags } from 'lucide-react';
-import { API_URL } from '../../../config/env';
+import { BarChart3, DatabaseZap, Tags, Wifi } from 'lucide-react';
 import { useDashboardStats } from '../../../hooks/useDashboardStats';
-import type { LiveValues } from '../../../types';
 
 export function DashboardOverview() {
-  const [liveValues, setLiveValues] = useState<LiveValues | null>(null);
   const { data: stats, isLoading } = useDashboardStats();
-
-  const socketUrl = useMemo(
-    () => API_URL.replace(/^http/, 'ws').replace(/\/api$/, '/api/ws'),
-    [],
-  );
-
-  useEffect(() => {
-    const socket = new WebSocket(socketUrl);
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as LiveValues;
-        setLiveValues(payload);
-      } catch {
-        // Ignore malformed messages from the dev backend.
-      }
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, [socketUrl]);
 
   const cards = [
     {
@@ -42,19 +17,19 @@ export function DashboardOverview() {
         ? '...'
         : `${(stats?.consistent_percentage ?? 0).toFixed(1)}%`,
       icon: BarChart3,
-      tone: '#10b981', // emerald-500
+      tone: '#10b981',
     },
     {
       label: 'TAGS',
       value: isLoading ? '...' : String(stats?.total_tags ?? 0),
       icon: Tags,
-      tone: '#f59e0b', // amber-500
+      tone: '#f59e0b',
     },
     {
-      label: 'PROCESSO AO VIVO',
-      value: liveValues ? `${liveValues.value1} / ${liveValues.value2}` : '-- / --',
-      icon: Activity,
-      tone: '#d946ef', // fuchsia-500
+      label: 'BACKEND',
+      value: 'Online',
+      icon: Wifi,
+      tone: '#d946ef',
     },
   ];
 
@@ -104,7 +79,7 @@ export function DashboardOverview() {
         <div style={lblStyle}>STATUS DO SISTEMA</div>
         <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--tx-2)' }}>
           <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: '#10b981' }} />
-          <span>Backend operacional via {socketUrl}</span>
+          <span>Backend operacional</span>
         </div>
       </section>
     </div>

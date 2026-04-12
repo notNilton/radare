@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Download, SlidersHorizontal, X } from 'lucide-react';
-import { useExportHistory, useInfiniteHistory } from '../../../hooks/useHistory';
+import { Download, FileText, SlidersHorizontal, X } from 'lucide-react';
+import { useExportHistory, useExportHistoryPdf, useInfiniteHistory } from '../../../hooks/useHistory';
 
 export function HistoryTable() {
   const [status, setStatus] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const observerRef = useRef<HTMLTableRowElement>(null);
 
@@ -24,6 +25,7 @@ export function HistoryTable() {
   } = useInfiniteHistory(filters);
 
   const exportHistoryMutation = useExportHistory();
+  const exportHistoryPdfMutation = useExportHistoryPdf();
 
   const items = useMemo(() => data?.pages.flatMap((page) => page.data ?? []) ?? [], [data]);
   const total = data?.pages[0]?.total ?? 0;
@@ -60,6 +62,23 @@ export function HistoryTable() {
       window.URL.revokeObjectURL(url);
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function exportPdf() {
+    setExportingPdf(true);
+    try {
+      const file = await exportHistoryPdfMutation.mutateAsync();
+      const url = window.URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'reconciliations.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -141,15 +160,26 @@ export function HistoryTable() {
             Log de auditoria industrial com rolagem infinita.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void exportCsv()}
-          disabled={exporting || exportHistoryMutation.isPending}
-          style={{ ...btnPrimary, color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}
-        >
-          <Download size={14} />
-          {exporting ? 'Exportando...' : 'Exportar CSV'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void exportCsv()}
+            disabled={exporting || exportHistoryMutation.isPending}
+            style={{ ...btnPrimary, color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}
+          >
+            <Download size={14} />
+            {exporting ? 'Exportando...' : 'Exportar CSV'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportPdf()}
+            disabled={exportingPdf || exportHistoryPdfMutation.isPending}
+            style={{ ...btnPrimary, color: '#0ea5e9', background: 'rgba(14,165,233,0.12)', border: '1px solid rgba(14,165,233,0.35)' }}
+          >
+            <FileText size={14} />
+            {exportingPdf ? 'Exportando...' : 'Exportar PDF'}
+          </button>
+        </div>
       </header>
 
       <section className="shrink-0" style={{
