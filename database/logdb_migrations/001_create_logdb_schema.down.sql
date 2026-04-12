@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS reconciliation_runs CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
