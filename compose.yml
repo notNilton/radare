@@ -22,6 +22,27 @@ services:
       retries: 10
       start_period: 30s
 
+  logdb:
+    image: docker.io/library/postgres:18-alpine
+    container_name: radare-logdb
+    userns_mode: keep-id
+    environment:
+      POSTGRES_DB: ${LOG_DB_NAME:-radare_logs}
+      POSTGRES_USER: ${DB_USER:-radare}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-radare}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - logdb_data:/var/lib/postgresql/data:Z
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-radare} -d ${LOG_DB_NAME:-radare_logs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   migrate:
     build:
       context: ./database
@@ -42,6 +63,24 @@ services:
       DB_NAME: ${DB_NAME:-radare}
       DB_SSLMODE: ${DB_SSLMODE:-disable}
     command: ["up"]
+
+  migrate-log:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: radare-migrate-log
+    userns_mode: keep-id
+    restart: "no"
+    depends_on:
+      logdb:
+        condition: service_healthy
+      migrate-log:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    environment:
+      LOG_DB_URL: postgresql://${DB_USER:-radare}:${DB_PASSWORD:-radare}@logdb:5432/${LOG_DB_NAME:-radare_logs}?sslmode=disable
+    command: ["log-up"]
 
   seed:
     build:
@@ -64,6 +103,19 @@ services:
       DB_SSLMODE: ${DB_SSLMODE:-disable}
     command: ["seed"]
 
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: radare-redis
+    userns_mode: keep-id
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -76,6 +128,10 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      logdb:
+        condition: service_healthy
     networks:
       - app-network
     environment:
@@ -87,6 +143,16 @@ services:
       DB_SSLMODE: ${DB_SSLMODE:-disable}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       PORT: ${PORT:-8080}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      LOG_DB_URL: postgresql://${DB_USER:-radare}:${DB_PASSWORD:-radare}@logdb:5432/${LOG_DB_NAME:-radare_logs}?sslmode=disable
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-radare-ingest}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-radare}
+      INFLUX_URL: ${INFLUX_URL:-}
+      INFLUX_TOKEN: ${INFLUX_TOKEN:-}
+      INFLUX_ORG: ${INFLUX_ORG:-}
+      INFLUX_BUCKET: ${INFLUX_BUCKET:-}
+      INFLUX_POLL_INTERVAL: ${INFLUX_POLL_INTERVAL:-30s}
 
   webapp:
     build:
@@ -106,6 +172,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  logdb_data:
     driver: local
 
 networks:
