@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"gonum.org/v1/gonum/mat"
+	"radare-datarecon/apps/backend/internal/hub"
 )
 
 // CurrentValues representa uma estrutura de dados de exemplo com dois valores inteiros.
@@ -36,20 +37,26 @@ type ReconciliationRequest struct {
 	Constraints [][]float64 `json:"constraints"`
 	// TagNames associa nomes opcionais às medições para identificação de outlier.
 	TagNames []string `json:"tag_names,omitempty"`
+	// WorkspaceID, when provided, links the result to the latest immutable
+	// snapshot of that workspace topology for full traceability.
+	WorkspaceID *uint `json:"workspace_id,omitempty"`
+	// Async determines if the reconciliation should be processed in the background.
+	Async bool `json:"async,omitempty"`
 }
 
 // ReconciliationResponse representa a estrutura da resposta JSON para uma reconciliação bem-sucedida.
 type ReconciliationResponse struct {
-	ReconciledValues    []float64 `json:"reconciled_values"`
-	Corrections         []float64 `json:"corrections"`
-	ConsistencyStatus   string    `json:"consistency_status"`
-	ChiSquare           float64   `json:"chi_square"`
-	CriticalValue       float64   `json:"critical_value"`
-	StatisticalValidity bool      `json:"statistical_validity"`
-	ConfidenceScore     float64   `json:"confidence_score"`
-	OutlierIndex        int       `json:"outlier_index"`
+	ReconciledValues    []float64 `json:"reconciled_values,omitempty"`
+	Corrections         []float64 `json:"corrections,omitempty"`
+	ConsistencyStatus   string    `json:"consistency_status,omitempty"`
+	ChiSquare           float64   `json:"chi_square,omitempty"`
+	CriticalValue       float64   `json:"critical_value,omitempty"`
+	StatisticalValidity bool      `json:"statistical_validity,omitempty"`
+	ConfidenceScore     float64   `json:"confidence_score,omitempty"`
+	OutlierIndex        int       `json:"outlier_index,omitempty"`
 	OutlierTag          string    `json:"outlier_tag,omitempty"`
-	OutlierContribution float64   `json:"outlier_contribution"`
+	OutlierContribution float64   `json:"outlier_contribution,omitempty"`
+	Message             string    `json:"message,omitempty"`
 }
 
 var (
@@ -126,6 +133,7 @@ func GetCurrentValues(w http.ResponseWriter, r *http.Request) error {
 func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Garante que o método da requisição seja POST.
 	if r.Method != http.MethodPost {
+		broadcastReconcileError("Método não permitido")
 		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		return nil // Retorna nil porque a resposta de erro já foi escrita.
 	}
@@ -133,6 +141,7 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Decodifica o corpo da requisição JSON para a estrutura ReconciliationRequest.
 	var req ReconciliationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		broadcastReconcileError("Corpo da requisição inválido")
 		http.Error(w, fmt.Sprintf("Corpo da requisição inválido: %v", err), http.StatusBadRequest)
 		return nil
 	}
@@ -140,11 +149,13 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Converte a matriz de restrições de [][]float64 para o tipo *mat.Dense esperado pela biblioteca gonum.
 	rows := len(req.Constraints)
 	if rows == 0 {
+		broadcastReconcileError("Erro de validação: constraints vazia")
 		http.Error(w, "Erro de validação: A matriz 'constraints' não pode estar vazia.", http.StatusBadRequest)
 		return nil
 	}
 	cols := len(req.Constraints[0])
 	if cols != len(req.Measurements) {
+		broadcastReconcileError("Erro de validação: dimensões inválidas")
 		http.Error(w, fmt.Sprintf("Erro de validação: O número de colunas nas restrições (%d) deve ser igual ao número de medições (%d).", cols, len(req.Measurements)), http.StatusBadRequest)
 		return nil
 	}
@@ -152,15 +163,44 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	constraints := mat.NewDense(rows, cols, nil)
 	for i, row := range req.Constraints {
 		if len(row) != cols {
+			broadcastReconcileError("Erro de validação: matriz de restrições inconsistente")
 			http.Error(w, fmt.Sprintf("Erro de validação: A linha %d da matriz de restrições tem %d elementos, mas o esperado era %d.", i, len(row), cols), http.StatusBadRequest)
 			return nil
 		}
 		constraints.SetRow(i, row)
 	}
 
+	// Handle asynchronous reconciliation
+	if req.Async {
+		userID, ok := r.Context().Value("userID").(float64)
+		if !ok {
+			return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
+		}
+
+		tenantID, _ := r.Context().Value("tenantID").(*uint)
+
+		workers.EnqueueReconciliation(workers.ReconciliationTask{
+			Measurements: req.Measurements,
+			Tolerances:   req.Tolerances,
+			Constraints:  req.Constraints,
+			TagNames:     req.TagNames,
+			UserID:       uint(userID),
+			TenantID:     tenantID,
+			WorkspaceID:  req.WorkspaceID,
+		})
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(ReconciliationResponse{
+			Message: "Reconciliação enviada para processamento em segundo plano.",
+		})
+		return nil
+	}
+
 	// Chama a função de reconciliação principal com os dados da requisição.
 	result, err := reconciliation.Reconcile(req.Measurements, req.Tolerances, constraints)
 	if err != nil {
+		broadcastReconcileError("Erro ao processar a reconciliação")
 		http.Error(w, fmt.Sprintf("Erro ao processar a reconciliação: %v", err), http.StatusBadRequest)
 		return nil
 	}
@@ -184,9 +224,22 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Salva a reconciliação no banco de dados se o usuário estiver autenticado.
 	userID, ok := r.Context().Value("userID").(float64)
 	if ok {
-		repository := repositories.NewReconciliationRepository(database.DB)
+		tenantID, _ := r.Context().Value("tenantID").(*uint)
+
+		// Resolve the latest workspace version when the caller provides a workspace_id.
+		var workspaceVersionID *uint
+		if req.WorkspaceID != nil && *req.WorkspaceID > 0 {
+			vRepo := repositories.NewWorkspaceVersionRepository(database.CoreDB)
+			if latest, err := vRepo.LatestByWorkspace(*req.WorkspaceID); err == nil {
+				workspaceVersionID = &latest.ID
+			}
+		}
+
+		repository := repositories.NewReconciliationRepository(database.CoreDB)
 		dbRecon := models.Reconciliation{
 			UserID:              uint(userID),
+			TenantID:            tenantID,
+			WorkspaceVersionID:  workspaceVersionID,
 			Measurements:        req.Measurements,
 			Tolerances:          req.Tolerances,
 			Constraints:         req.Constraints,
@@ -203,6 +256,38 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 		}
 		_ = repository.Create(&dbRecon)
 	}
+
+	// Grava um snapshot efêmero no LogDB para auditoria/observabilidade.
+	var snapshotUserID *uint
+	if ok {
+		uid := uint(userID)
+		snapshotUserID = &uid
+	}
+	var snapshotWorkspaceID *uint
+	if req.WorkspaceID != nil && *req.WorkspaceID > 0 {
+		snapshotWorkspaceID = req.WorkspaceID
+	}
+	database.LogReconciliationSnapshot(database.LogDB, snapshotUserID, snapshotWorkspaceID, status, result.GlobalTest.Statistic, result.GlobalTest.ConfidenceScore, map[string]interface{}{
+		"measurements":      req.Measurements,
+		"tolerances":        req.Tolerances,
+		"constraints":       req.Constraints,
+		"reconciled_values": result.ReconciledValues,
+		"corrections":       corrections,
+		"outlier_index":     result.GlobalTest.OutlierIndex,
+		"outlier_tag":       outlierTag,
+	})
+
+	// Notifica todos os clientes WebSocket sobre o resultado.
+	hub.Default.Broadcast(hub.TypeReconciliationResult, map[string]interface{}{
+		"status":               status,
+		"chi_square":           result.GlobalTest.Statistic,
+		"critical_value":       result.GlobalTest.CriticalValue,
+		"statistical_validity": result.GlobalTest.StatisticalValidity,
+		"confidence_score":     result.GlobalTest.ConfidenceScore,
+		"outlier_index":        result.GlobalTest.OutlierIndex,
+		"outlier_tag":          outlierTag,
+		"outlier_contribution": result.GlobalTest.OutlierContribution,
+	})
 
 	// Prepara e envia a resposta de sucesso em formato JSON.
 	w.Header().Set("Content-Type", "application/json")
@@ -253,7 +338,7 @@ func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: err.Error()}
 	}
 
-	repository := repositories.NewReconciliationRepository(database.DB)
+	repository := repositories.NewReconciliationRepository(database.CoreDB)
 	history, total, err := repository.ListByUser(uint(userID), repositories.ReconciliationHistoryFilter{
 		Status:    status,
 		StartDate: startDate,
@@ -284,7 +369,7 @@ func ExportReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
 
-	repository := repositories.NewReconciliationRepository(database.DB)
+	repository := repositories.NewReconciliationRepository(database.CoreDB)
 	history, err := repository.ListAllByUser(uint(userID))
 	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico para exportação"}
@@ -310,4 +395,53 @@ func ExportReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return nil
+}
+
+// ExportReconciliationHistoryPDF exporta o histórico do usuário para um arquivo PDF simples.
+func ExportReconciliationHistoryPDF(w http.ResponseWriter, r *http.Request) error {
+	userID, ok := r.Context().Value("userID").(float64)
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
+	}
+
+	repository := repositories.NewReconciliationRepository(database.CoreDB)
+	history, err := repository.ListAllByUser(uint(userID))
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico para exportação"}
+	}
+
+	lines := []string{
+		"Historico de reconciliacoes",
+		fmt.Sprintf("Gerado em: %s", time.Now().Format("2006-01-02 15:04:05")),
+		fmt.Sprintf("Total de registros: %d", len(history)),
+		"",
+		"ID | Data | Status | chi2 | valido | confianca",
+		"------------------------------------------------",
+	}
+
+	for _, rec := range history {
+		line := fmt.Sprintf(
+			"%d | %s | %s | %.4f | %t | %.1f%%",
+			rec.ID,
+			rec.CreatedAt.Format("2006-01-02 15:04:05"),
+			rec.ConsistencyStatus,
+			rec.ChiSquare,
+			rec.StatisticalValidity,
+			rec.ConfidenceScore*100,
+		)
+		lines = append(lines, wrapLine(line, 110)...)
+	}
+
+	pdfBytes := buildSimplePDF(lines)
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "attachment;filename=reconciliations.pdf")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(pdfBytes)
+	return nil
+}
+
+func broadcastReconcileError(message string) {
+	hub.Default.Broadcast(hub.TypeReconciliationError, map[string]interface{}{
+		"error": message,
+	})
 }
