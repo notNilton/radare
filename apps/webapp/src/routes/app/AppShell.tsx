@@ -1,9 +1,12 @@
 import { PropsWithChildren, useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import { CircleHelp, Gauge, History, LogOut, Moon, Sun, Tags, UserCog, Workflow } from 'lucide-react';
+import { Activity, CircleHelp, Gauge, History, LogOut, Moon, Shield, Sun, Tags, UserCog, Workflow } from 'lucide-react';
 import { useAuthStore } from '../../store/AuthStore';
 import { useThemeStore } from '../../store/ThemeStore';
+import { getRoleFromToken } from '../../lib/jwt';
 import AboutModal from '../../components/About/AboutModal';
+import { Notifications } from '../../components/Common/Notifications';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const navigation = [
   { to: '/', label: 'Workspace', icon: Workflow },
@@ -15,9 +18,14 @@ const navigation = [
 
 export function AppShell({ children }: PropsWithChildren) {
   const [showAbout, setShowAbout] = useState(false);
+  useNotifications();
   const logout = useAuthStore((state) => state.logout);
+  const token = useAuthStore((state) => state.token);
   const { theme, toggle } = useThemeStore();
   const location = useRouterState({ select: (s) => s.location.pathname });
+  const role = getRoleFromToken(token);
+  const isAdmin = role === 'admin';
+  const canAccessConnectivity = role === 'admin' || role === 'operador';
 
   return (
     <div
@@ -63,6 +71,52 @@ export function AppShell({ children }: PropsWithChildren) {
               </Link>
             );
           })}
+          {canAccessConnectivity && (() => {
+            const active = location === '/connectivity';
+            return (
+              <Link
+                to="/connectivity"
+                className="flex items-center gap-2 rounded px-3 py-2 text-xs font-medium transition"
+                style={
+                  active
+                    ? { background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent-bd)', borderRadius: '4px' }
+                    : { color: 'var(--tx-2)' }
+                }
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--tx-1)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--tx-2)';
+                }}
+              >
+                <Activity className="h-3.5 w-3.5 shrink-0" />
+                Conectividade
+              </Link>
+            );
+          })()}
+          {isAdmin && (() => {
+            const active = location === '/admin';
+            return (
+              <Link
+                to="/admin"
+                className="flex items-center gap-2 rounded px-3 py-2 text-xs font-medium transition"
+                style={
+                  active
+                    ? { background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent-bd)', borderRadius: '4px' }
+                    : { color: 'var(--tx-2)' }
+                }
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--tx-1)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--tx-2)';
+                }}
+              >
+                <Shield className="h-3.5 w-3.5 shrink-0" />
+                Admin
+              </Link>
+            );
+          })()}
         </nav>
 
         <div
@@ -75,10 +129,10 @@ export function AppShell({ children }: PropsWithChildren) {
             className="flex items-center gap-2 rounded px-3 py-2 text-xs transition"
             style={{ color: 'var(--tx-2)' }}
           >
-            {theme === 'dark'
-              ? <Sun className="h-3.5 w-3.5 shrink-0" />
-              : <Moon className="h-3.5 w-3.5 shrink-0" />}
-            {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            {theme === 'light'
+              ? <Moon className="h-3.5 w-3.5 shrink-0" />
+              : <Sun className="h-3.5 w-3.5 shrink-0" />}
+            Tema: {theme === 'industrial' ? 'Industrial' : theme === 'light' ? 'Light' : 'Dark'}
           </button>
           <button
             type="button"
@@ -107,6 +161,7 @@ export function AppShell({ children }: PropsWithChildren) {
         showAbout={showAbout}
         toggleAboutPopup={() => setShowAbout((v) => !v)}
       />
+      <Notifications />
     </div>
   );
 }
