@@ -8,6 +8,7 @@ import "time"
 type WorkspaceVersion struct {
 	ID          uint                   `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time              `json:"created_at"`
+	TenantID    uint                   `gorm:"not null;index" json:"tenant_id"`
 	WorkspaceID uint                   `gorm:"not null;index" json:"workspace_id"`
 	Workspace   Workspace              `gorm:"foreignKey:WorkspaceID" json:"-"`
 	VersionNum  int                    `gorm:"not null" json:"version_num"`

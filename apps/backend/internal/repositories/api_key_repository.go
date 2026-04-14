@@ -19,10 +19,10 @@ func (r *APIKeyRepository) Create(key *models.APIKey) error {
 	return r.db.Create(key).Error
 }
 
-func (r *APIKeyRepository) ListByUser(userID uint) ([]models.APIKey, error) {
+func (r *APIKeyRepository) ListByUserAndTenant(userID uint, tenantID uint) ([]models.APIKey, error) {
 	var keys []models.APIKey
 	err := r.db.
-		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Where("user_id = ? AND tenant_id = ? AND revoked_at IS NULL", userID, tenantID).
 		Order("created_at DESC").
 		Find(&keys).Error
 	return keys, err
@@ -40,11 +40,11 @@ func (r *APIKeyRepository) FindByPrefix(prefix string) (*models.APIKey, error) {
 	return &key, nil
 }
 
-func (r *APIKeyRepository) Revoke(id uint, userID uint) error {
+func (r *APIKeyRepository) RevokeByTenant(id uint, userID uint, tenantID uint) error {
 	now := time.Now().UTC()
 	return r.db.
 		Model(&models.APIKey{}).
-		Where("id = ? AND user_id = ? AND revoked_at IS NULL", id, userID).
+		Where("id = ? AND user_id = ? AND tenant_id = ? AND revoked_at IS NULL", id, userID, tenantID).
 		Update("revoked_at", now).Error
 }
 

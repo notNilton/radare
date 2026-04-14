@@ -10,8 +10,10 @@ import (
 func TestTagRepositoryCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewTagRepository(db)
+	tenantID := testTenantID(t, db)
 
 	tag := models.Tag{
+		TenantID:    tenantID,
 		Name:        "FT-101",
 		Description: "Flow transmitter",
 		Unit:        "kg/h",
@@ -21,7 +23,7 @@ func TestTagRepositoryCRUD(t *testing.T) {
 		t.Fatalf("create tag: %v", err)
 	}
 
-	tags, err := repo.List()
+	tags, err := repo.ListByTenant(tenantID)
 	if err != nil {
 		t.Fatalf("list tags: %v", err)
 	}
@@ -34,11 +36,11 @@ func TestTagRepositoryCRUD(t *testing.T) {
 		t.Fatalf("expected FT-101, got %s", tags[0].Name)
 	}
 
-	if err := repo.DeleteByID(strconv.FormatUint(uint64(tag.ID), 10)); err != nil {
+	if err := repo.DeleteByIDAndTenant(strconv.FormatUint(uint64(tag.ID), 10), tenantID); err != nil {
 		t.Fatalf("delete tag: %v", err)
 	}
 
-	tags, err = repo.List()
+	tags, err = repo.ListByTenant(tenantID)
 	if err != nil {
 		t.Fatalf("list tags after delete: %v", err)
 	}

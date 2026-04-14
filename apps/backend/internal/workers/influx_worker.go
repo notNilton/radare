@@ -52,6 +52,11 @@ func StartInfluxWorker(ctx context.Context, cfg InfluxConfig) error {
 	client := &http.Client{Timeout: 12 * time.Second}
 
 	go func() {
+		// Ping once immediately on startup so the connector shows online right away.
+		if pingInflux(ctx, client, cfg) {
+			cache.TouchConnector(ctx, "influxdb")
+		}
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -60,12 +65,31 @@ func StartInfluxWorker(ctx context.Context, cfg InfluxConfig) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if pingInflux(ctx, client, cfg) {
+					cache.TouchConnector(ctx, "influxdb")
+				}
 				pollInflux(ctx, client, cfg)
 			}
 		}
 	}()
 
 	return nil
+}
+
+// pingInflux performs a cheap health check against the InfluxDB /health endpoint.
+func pingInflux(ctx context.Context, client *http.Client, cfg InfluxConfig) bool {
+	url := strings.TrimRight(cfg.URL, "/") + "/health"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Debug("InfluxDB health check failed", "error", err)
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode < 400
 }
 
 func pollInflux(ctx context.Context, client *http.Client, cfg InfluxConfig) {

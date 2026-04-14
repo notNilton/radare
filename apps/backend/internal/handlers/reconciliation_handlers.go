@@ -146,6 +146,10 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 		http.Error(w, fmt.Sprintf("Corpo da requisição inválido: %v", err), http.StatusBadRequest)
 		return nil
 	}
+	tenantID, tenantOK := middleware.TenantIDPointerFromContext(r.Context())
+	if !tenantOK {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	// Converte a matriz de restrições de [][]float64 para o tipo *mat.Dense esperado pela biblioteca gonum.
 	rows := len(req.Constraints)
@@ -177,8 +181,6 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 		if !ok {
 			return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 		}
-
-		tenantID, _ := r.Context().Value("tenantID").(*uint)
 
 		workers.EnqueueReconciliation(workers.ReconciliationTask{
 			Measurements: req.Measurements,
@@ -225,13 +227,11 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	// Salva a reconciliação no banco de dados se o usuário estiver autenticado.
 	userID, ok := r.Context().Value("userID").(float64)
 	if ok {
-		tenantID, _ := r.Context().Value("tenantID").(*uint)
-
 		// Resolve the latest workspace version when the caller provides a workspace_id.
 		var workspaceVersionID *uint
 		if req.WorkspaceID != nil && *req.WorkspaceID > 0 {
 			vRepo := repositories.NewWorkspaceVersionRepository(database.CoreDB)
-			if latest, err := vRepo.LatestByWorkspace(*req.WorkspaceID); err == nil {
+			if latest, err := vRepo.LatestByWorkspaceAndTenant(*req.WorkspaceID, *tenantID); err == nil {
 				workspaceVersionID = &latest.ID
 			}
 		}
@@ -317,6 +317,10 @@ func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	// Filtros
 	status := r.URL.Query().Get("status")
@@ -340,7 +344,7 @@ func GetReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	repository := repositories.NewReconciliationRepository(database.CoreDB)
-	history, total, err := repository.ListByUser(uint(userID), repositories.ReconciliationHistoryFilter{
+	history, total, err := repository.ListByUserAndTenant(uint(userID), tenantID, repositories.ReconciliationHistoryFilter{
 		Status:    status,
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -369,9 +373,13 @@ func ExportReconciliationHistory(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	repository := repositories.NewReconciliationRepository(database.CoreDB)
-	history, err := repository.ListAllByUser(uint(userID))
+	history, err := repository.ListAllByUserAndTenant(uint(userID), tenantID)
 	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico para exportação"}
 	}
@@ -404,9 +412,13 @@ func ExportReconciliationHistoryPDF(w http.ResponseWriter, r *http.Request) erro
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	repository := repositories.NewReconciliationRepository(database.CoreDB)
-	history, err := repository.ListAllByUser(uint(userID))
+	history, err := repository.ListAllByUserAndTenant(uint(userID), tenantID)
 	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar histórico para exportação"}
 	}

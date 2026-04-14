@@ -28,7 +28,7 @@ func (r *ReconciliationRepository) Create(reconciliation *models.Reconciliation)
 	return r.db.Create(reconciliation).Error
 }
 
-func (r *ReconciliationRepository) ListByUser(userID uint, filter ReconciliationHistoryFilter) ([]models.Reconciliation, int64, error) {
+func (r *ReconciliationRepository) ListByUserAndTenant(userID uint, tenantID uint, filter ReconciliationHistoryFilter) ([]models.Reconciliation, int64, error) {
 	page := filter.Page
 	if page <= 0 {
 		page = 1
@@ -39,7 +39,7 @@ func (r *ReconciliationRepository) ListByUser(userID uint, filter Reconciliation
 		pageSize = 10
 	}
 
-	query := r.db.Model(&models.Reconciliation{}).Where("user_id = ?", userID)
+	query := r.db.Model(&models.Reconciliation{}).Where("user_id = ? AND tenant_id = ?", userID, tenantID)
 
 	if filter.Status != "" {
 		query = query.Where("consistency_status = ?", filter.Status)
@@ -67,9 +67,9 @@ func (r *ReconciliationRepository) ListByUser(userID uint, filter Reconciliation
 	return history, total, nil
 }
 
-func (r *ReconciliationRepository) ListAllByUser(userID uint) ([]models.Reconciliation, error) {
+func (r *ReconciliationRepository) ListAllByUserAndTenant(userID uint, tenantID uint) ([]models.Reconciliation, error) {
 	var history []models.Reconciliation
-	if err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&history).Error; err != nil {
+	if err := r.db.Where("user_id = ? AND tenant_id = ?", userID, tenantID).Order("created_at desc").Find(&history).Error; err != nil {
 		return nil, err
 	}
 

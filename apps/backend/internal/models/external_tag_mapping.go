@@ -16,6 +16,7 @@ const (
 // One internal tag can have multiple external sources.
 type ExternalTagMapping struct {
 	gorm.Model
+	TenantID      uint          `gorm:"not null;index" json:"tenant_id"`
 	TagID         uint          `gorm:"not null;index" json:"tag_id"`
 	Tag           Tag           `gorm:"foreignKey:TagID" json:"-"`
 	ConnectorType ConnectorType `gorm:"not null" json:"connector_type"`

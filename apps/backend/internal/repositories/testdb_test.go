@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"radare-datarecon/apps/backend/internal/models"
 	"radare-datarecon/database"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -54,4 +55,14 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	}
 
 	return db
+}
+
+func testTenantID(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+
+	var tenant models.Tenant
+	if err := db.Where("slug = ?", "nilbyte").First(&tenant).Error; err != nil {
+		t.Fatalf("load test tenant: %v", err)
+	}
+	return tenant.ID
 }

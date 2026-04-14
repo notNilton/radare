@@ -132,6 +132,11 @@ func main() {
 	http.Handle("/api/workspaces", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.Workspaces))))))
 	http.Handle("/api/workspaces/", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.WorkspaceByID))))))
 
+	// API V2 — tenant-scoped industrial hierarchy.
+	http.Handle("/api/v2/sites", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.SitesV2))))))
+	http.Handle("/api/v2/units", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.UnitsV2))))))
+	http.Handle("/api/v2/equipment", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.EquipmentV2))))))
+
 	// Admin-only endpoints for user management and role assignment.
 	adminRole := middleware.RequireRole("admin")
 	http.Handle("/api/admin/users", opts(middleware.LoggingMiddleware(authMiddleware(adminRole(middleware.ErrorHandler(handlers.ListUsers))))))

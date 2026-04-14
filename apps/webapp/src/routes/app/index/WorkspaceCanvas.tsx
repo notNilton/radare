@@ -187,12 +187,39 @@ export function WorkspaceCanvas() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hoveredNodeId = useRef<string | null>(null);
   const suppressNextCtx = useRef(false);
+  const autoLoadDone = useRef(false);
 
   // Refs to keep track of current state without triggering re-renders in snapshots
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
+
+  // Auto-load the last active workspace on first mount.
+  useEffect(() => {
+    if (autoLoadDone.current || workspacesLoading || workspaces.length === 0) return;
+    autoLoadDone.current = true;
+
+    const storedId = localStorage.getItem('radare:active-workspace-id');
+    if (!storedId) return;
+
+    const id = Number(storedId);
+    const found = workspaces.find((ws) => ws.ID === id);
+    if (!found) return;
+
+    const { edges: nextEdges, nodes: nextNodes, viewport } = restoreWorkspaceFlowData(found.data);
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+    syncNodeSeq(nextNodes);
+    setActiveWorkspace({ description: found.description, id: found.ID, name: found.name });
+    setWorkspaceDraft({ description: found.description, id: found.ID, name: found.name });
+
+    if (viewport) {
+      window.requestAnimationFrame(() => {
+        void rfInstance.current?.setViewport(viewport);
+      });
+    }
+  }, [workspaces, workspacesLoading, setNodes, setEdges]);
 
   const reconcileMutation = useReconcile();
   const { data: workspaces = [], isLoading: workspacesLoading } = useWorkspaces();
@@ -441,6 +468,7 @@ export function WorkspaceCanvas() {
       });
       setWorkspaceDraft({ description: saved.description, id: saved.ID, name: saved.name });
       setActiveWorkspace({ description: saved.description, id: saved.ID, name: saved.name });
+      localStorage.setItem('radare:active-workspace-id', String(saved.ID));
       setSaveModalOpen(false);
       setStatus(`Layout "${saved.name}" salvo.`);
     } catch (error) {
@@ -456,6 +484,7 @@ export function WorkspaceCanvas() {
     syncNodeSeq(nextNodes);
     setActiveWorkspace({ description: workspace.description, id: workspace.ID, name: workspace.name });
     setWorkspaceDraft({ description: workspace.description, id: workspace.ID, name: workspace.name });
+    localStorage.setItem('radare:active-workspace-id', String(workspace.ID));
     setLoadModalOpen(false);
     setStatus(`Layout "${workspace.name}" carregado.`);
 
@@ -498,7 +527,10 @@ export function WorkspaceCanvas() {
       await deleteWorkspaceMutation.mutateAsync(workspace.ID);
       setStatus(`Layout "${workspace.name}" excluído.`);
       if (workspaceDraft.id === workspace.ID) setWorkspaceDraft({ description: '', name: '' });
-      if (activeWorkspace?.id === workspace.ID) setActiveWorkspace(null);
+      if (activeWorkspace?.id === workspace.ID) {
+        setActiveWorkspace(null);
+        localStorage.removeItem('radare:active-workspace-id');
+      }
     } catch (error) {
       setStatus(getErrorMessage(error, 'Não foi possível excluir o layout.'));
     }

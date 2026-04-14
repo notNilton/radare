@@ -18,17 +18,26 @@ func (r *ExternalTagMappingRepository) Create(m *models.ExternalTagMapping) erro
 	return r.db.Create(m).Error
 }
 
-func (r *ExternalTagMappingRepository) List() ([]models.ExternalTagMapping, error) {
+func (r *ExternalTagMappingRepository) ListByTenant(tenantID uint) ([]models.ExternalTagMapping, error) {
 	var mappings []models.ExternalTagMapping
-	err := r.db.Order("connector_type, external_name").Find(&mappings).Error
+	err := r.db.Where("tenant_id = ?", tenantID).Order("connector_type, external_name").Find(&mappings).Error
 	return mappings, err
 }
 
-// ListByConnector returns mappings filtered by connector type.
 func (r *ExternalTagMappingRepository) ListByConnector(connector models.ConnectorType) ([]models.ExternalTagMapping, error) {
 	var mappings []models.ExternalTagMapping
 	err := r.db.
 		Where("connector_type = ?", connector).
+		Order("external_name").
+		Find(&mappings).Error
+	return mappings, err
+}
+
+// ListByConnector returns mappings filtered by connector type.
+func (r *ExternalTagMappingRepository) ListByConnectorAndTenant(connector models.ConnectorType, tenantID uint) ([]models.ExternalTagMapping, error) {
+	var mappings []models.ExternalTagMapping
+	err := r.db.
+		Where("connector_type = ? AND tenant_id = ?", connector, tenantID).
 		Order("external_name").
 		Find(&mappings).Error
 	return mappings, err
@@ -45,6 +54,17 @@ func (r *ExternalTagMappingRepository) FindByExternalName(connectorType models.C
 	return &m, nil
 }
 
-func (r *ExternalTagMappingRepository) Delete(id uint) error {
-	return r.db.Delete(&models.ExternalTagMapping{}, id).Error
+func (r *ExternalTagMappingRepository) FindByExternalNameAndTenant(connectorType models.ConnectorType, externalName string, tenantID uint) (*models.ExternalTagMapping, error) {
+	var m models.ExternalTagMapping
+	err := r.db.
+		Where("connector_type = ? AND external_name = ? AND tenant_id = ?", connectorType, externalName, tenantID).
+		First(&m).Error
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (r *ExternalTagMappingRepository) DeleteByTenant(id uint, tenantID uint) error {
+	return r.db.Where("tenant_id = ?", tenantID).Delete(&models.ExternalTagMapping{}, id).Error
 }

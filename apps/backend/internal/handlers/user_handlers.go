@@ -57,9 +57,14 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err // Return a 500 error if hashing fails.
 	}
+	tenantID, err := defaultTenantID()
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Tenant padrão não encontrado"}
+	}
 
 	// Create a new User instance with the request data.
 	user := models.User{
+		TenantID:     &tenantID,
 		Username:     req.Username,
 		Password:     string(hashedPassword),
 		Name:         req.Name,
@@ -76,6 +81,14 @@ func Register(w http.ResponseWriter, r *http.Request) error {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"message": "User created successfully"})
 	return nil
+}
+
+func defaultTenantID() (uint, error) {
+	var tenant models.Tenant
+	if result := database.CoreDB.Where("slug = ?", "nilbyte").First(&tenant); result.Error != nil {
+		return 0, result.Error
+	}
+	return tenant.ID, nil
 }
 
 // generateToken creates a new JWT for a user, embedding their role and tenant_id

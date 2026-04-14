@@ -14,8 +14,9 @@ import (
 
 // IngestValueRequest is the body for a manual tag value push.
 type IngestValueRequest struct {
-	TagID uint    `json:"tag_id"`
-	Value float64 `json:"value"`
+	TagID          uint    `json:"tag_id"`
+	Value          float64 `json:"value"`
+	IdempotencyKey string  `json:"idempotency_key"`
 }
 
 // IngestTagValue handles POST /api/ingest/values.
@@ -32,6 +33,20 @@ func IngestTagValue(w http.ResponseWriter, r *http.Request) error {
 	}
 	if req.TagID == 0 {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "tag_id é obrigatório"}
+	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = r.Header.Get("Idempotency-Key")
+	}
+	if req.IdempotencyKey == "" {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "Idempotency-Key é obrigatório"}
+	}
+
+	if err := recordIdempotencyKey(tenantID, "ingest.values", req.IdempotencyKey); err != nil {
+		return middleware.HTTPError{Code: http.StatusConflict, Message: "Chave de idempotência já utilizada"}
 	}
 
 	if err := cache.SetTagValue(r.Context(), req.TagID, req.Value); err != nil {
@@ -90,9 +105,13 @@ func ListExternalTagMappings(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != http.MethodGet {
 		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Método não permitido"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	repo := repositories.NewExternalTagMappingRepository(database.CoreDB)
-	mappings, err := repo.List()
+	mappings, err := repo.ListByTenant(tenantID)
 	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar mapeamentos"}
 	}
@@ -121,6 +140,10 @@ func CreateExternalTagMapping(w http.ResponseWriter, r *http.Request) error {
 	if req.TagID == 0 || req.ExternalName == "" {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "tag_id e external_name são obrigatórios"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	switch req.ConnectorType {
 	case models.ConnectorMQTT, models.ConnectorInfluxDB, models.ConnectorManual:
@@ -129,6 +152,7 @@ func CreateExternalTagMapping(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	mapping := &models.ExternalTagMapping{
+		TenantID:      tenantID,
 		TagID:         req.TagID,
 		ConnectorType: req.ConnectorType,
 		ExternalName:  req.ExternalName,
@@ -143,4 +167,13 @@ func CreateExternalTagMapping(w http.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	return json.NewEncoder(w).Encode(mapping)
+}
+
+func recordIdempotencyKey(tenantID uint, scope string, key string) error {
+	return database.CoreDB.Exec(
+		`INSERT INTO idempotency_keys (tenant_id, scope, key) VALUES (?, ?, ?)`,
+		tenantID,
+		scope,
+		key,
+	).Error
 }

@@ -12,9 +12,14 @@ import (
 
 // GetTags retorna todas as tags cadastradas.
 func GetTags(w http.ResponseWriter, r *http.Request) error {
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
+
 	tagRepository := repositories.NewTagRepository(database.CoreDB)
 
-	tags, err := tagRepository.List()
+	tags, err := tagRepository.ListByTenant(tenantID)
 	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar tags"}
 	}
@@ -34,6 +39,11 @@ func CreateTag(w http.ResponseWriter, r *http.Request) error {
 	if err := json.NewDecoder(r.Body).Decode(&tag); err != nil {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "Corpo da requisição inválido"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
+	tag.TenantID = tenantID
 
 	tagRepository := repositories.NewTagRepository(database.CoreDB)
 	if err := tagRepository.Create(&tag); err != nil {
@@ -60,9 +70,13 @@ func DeleteTag(w http.ResponseWriter, r *http.Request) error {
 	if id == "" {
 		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "ID da tag é obrigatório"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	tagRepository := repositories.NewTagRepository(database.CoreDB)
-	if err := tagRepository.DeleteByID(id); err != nil {
+	if err := tagRepository.DeleteByIDAndTenant(id, tenantID); err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao deletar tag"}
 	}
 

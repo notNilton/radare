@@ -101,8 +101,10 @@ func processTask(ctx context.Context, task ReconciliationTask) {
 	var workspaceVersionID *uint
 	if task.WorkspaceID != nil && *task.WorkspaceID > 0 {
 		vRepo := repositories.NewWorkspaceVersionRepository(database.CoreDB)
-		if latest, err := vRepo.LatestByWorkspace(*task.WorkspaceID); err == nil {
-			workspaceVersionID = &latest.ID
+		if task.TenantID != nil {
+			if latest, err := vRepo.LatestByWorkspaceAndTenant(*task.WorkspaceID, *task.TenantID); err == nil {
+				workspaceVersionID = &latest.ID
+			}
 		}
 	}
 

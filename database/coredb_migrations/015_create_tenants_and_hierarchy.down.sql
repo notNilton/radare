@@ -1,0 +1,5 @@
+DROP INDEX IF EXISTS idx_tenants_deleted_at;
+DROP TABLE IF EXISTS equipment;
+DROP TABLE IF EXISTS units;
+DROP TABLE IF EXISTS sites;
+DROP TABLE IF EXISTS tenants;

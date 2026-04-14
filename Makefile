@@ -21,6 +21,7 @@ help:
 	@printf "  make seed           Run CoreDB seeds\n"
 	@printf "  make migrate-log    Run LogDB migrations\n"
 	@printf "  make seed-log       Run LogDB seeds\n"
+	@printf "  make nuke-and-pave  Reset local DB volumes and reapply migrations/seeds\n"
 	@printf "  make db-logs        Follow CoreDB logs\n"
 	@printf "  make db-down        Stop all local compose services\n"
 	@printf "  make status         Show local compose service status\n\n"
@@ -50,6 +51,10 @@ migrate-log:
 .PHONY: seed-log
 seed-log:
 	$(COMPOSE) -f $(COMPOSE_FILE) up --build seed-log
+
+.PHONY: nuke-and-pave
+nuke-and-pave:
+	RADARE_CONFIRM_NUKE=yes COMPOSE="$(COMPOSE)" COMPOSE_FILE="$(COMPOSE_FILE)" ./scripts/nuke-and-pave.sh
 
 .PHONY: db-logs
 db-logs:

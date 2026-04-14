@@ -21,22 +21,26 @@ func GetDashboardStats(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	var stats DashboardStats
 
 	// Conta total de reconciliações
-	database.CoreDB.Model(&models.Reconciliation{}).Where("user_id = ?", uint(userID)).Count(&stats.TotalReconciliations)
+	database.CoreDB.Model(&models.Reconciliation{}).Where("user_id = ? AND tenant_id = ?", uint(userID), tenantID).Count(&stats.TotalReconciliations)
 
 	// Conta consistentes
 	var consistentCount int64
-	database.CoreDB.Model(&models.Reconciliation{}).Where("user_id = ? AND consistency_status = ?", uint(userID), "Consistente").Count(&consistentCount)
+	database.CoreDB.Model(&models.Reconciliation{}).Where("user_id = ? AND tenant_id = ? AND consistency_status = ?", uint(userID), tenantID, "Consistente").Count(&consistentCount)
 
 	if stats.TotalReconciliations > 0 {
 		stats.ConsistentPercentage = (float64(consistentCount) / float64(stats.TotalReconciliations)) * 100
 	}
 
 	// Conta tags
-	database.CoreDB.Model(&models.Tag{}).Count(&stats.TotalTags)
+	database.CoreDB.Model(&models.Tag{}).Where("tenant_id = ?", tenantID).Count(&stats.TotalTags)
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(stats)

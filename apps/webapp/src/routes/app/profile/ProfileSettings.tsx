@@ -20,7 +20,7 @@ export function ProfileSettings() {
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const { data: profile, isLoading } = useProfile();
-  const { setTheme, theme } = useThemeStore();
+  const { setTheme } = useThemeStore();
 
   useEffect(() => {
     if (profile) {
@@ -34,11 +34,8 @@ export function ProfileSettings() {
           state: profile.address?.state ?? '',
         },
       });
-      if (profile.theme && profile.theme !== theme) {
-        setTheme(profile.theme);
-      }
     }
-  }, [profile, setTheme, theme]);
+  }, [profile]);
 
   const updateProfileMutation = useUpdateProfile();
   const updatePasswordMutation = useUpdatePassword();

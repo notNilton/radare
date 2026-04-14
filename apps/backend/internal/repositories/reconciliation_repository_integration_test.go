@@ -10,8 +10,10 @@ import (
 func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewReconciliationRepository(db)
+	tenantID := testTenantID(t, db)
 
 	user := models.User{
+		TenantID:     &tenantID,
 		Username:     "operator",
 		Password:     "hashed-password",
 		Name:         "Operator",
@@ -24,6 +26,7 @@ func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testin
 	records := []models.Reconciliation{
 		{
 			UserID:            user.ID,
+			TenantID:          &tenantID,
 			Measurements:      []float64{10, 20},
 			Tolerances:        []float64{0.1, 0.1},
 			Constraints:       [][]float64{{1, -1}},
@@ -33,6 +36,7 @@ func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testin
 		},
 		{
 			UserID:            user.ID,
+			TenantID:          &tenantID,
 			Measurements:      []float64{30, 40},
 			Tolerances:        []float64{0.2, 0.2},
 			Constraints:       [][]float64{{1, -1}},
@@ -42,6 +46,7 @@ func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testin
 		},
 		{
 			UserID:            user.ID,
+			TenantID:          &tenantID,
 			Measurements:      []float64{50, 60},
 			Tolerances:        []float64{0.3, 0.3},
 			Constraints:       [][]float64{{1, -1}},
@@ -61,7 +66,7 @@ func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testin
 	startDate := time.Now().Add(-time.Hour)
 	endDate := time.Now().Add(time.Hour)
 
-	history, total, err := repo.ListByUser(user.ID, ReconciliationHistoryFilter{
+	history, total, err := repo.ListByUserAndTenant(user.ID, tenantID, ReconciliationHistoryFilter{
 		Status:    "Consistente",
 		StartDate: &startDate,
 		EndDate:   &endDate,
@@ -88,8 +93,10 @@ func TestReconciliationRepositoryListByUserAppliesFiltersAndPagination(t *testin
 func TestReconciliationRepositoryListAllByUserReturnsNewestFirst(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewReconciliationRepository(db)
+	tenantID := testTenantID(t, db)
 
 	user := models.User{
+		TenantID:     &tenantID,
 		Username:     "historian",
 		Password:     "hashed-password",
 		Name:         "Historian",
@@ -101,6 +108,7 @@ func TestReconciliationRepositoryListAllByUserReturnsNewestFirst(t *testing.T) {
 
 	first := models.Reconciliation{
 		UserID:            user.ID,
+		TenantID:          &tenantID,
 		Measurements:      []float64{1},
 		Tolerances:        []float64{0.1},
 		Constraints:       [][]float64{{1}},
@@ -110,6 +118,7 @@ func TestReconciliationRepositoryListAllByUserReturnsNewestFirst(t *testing.T) {
 	}
 	second := models.Reconciliation{
 		UserID:            user.ID,
+		TenantID:          &tenantID,
 		Measurements:      []float64{2},
 		Tolerances:        []float64{0.1},
 		Constraints:       [][]float64{{1}},
@@ -125,7 +134,7 @@ func TestReconciliationRepositoryListAllByUserReturnsNewestFirst(t *testing.T) {
 		t.Fatalf("create second reconciliation: %v", err)
 	}
 
-	history, err := repo.ListAllByUser(user.ID)
+	history, err := repo.ListAllByUserAndTenant(user.ID, tenantID)
 	if err != nil {
 		t.Fatalf("list all reconciliations: %v", err)
 	}

@@ -21,6 +21,7 @@ type Site struct {
 // Unit represents a process unit or area within a site.
 type Unit struct {
 	gorm.Model
+	TenantID    uint   `gorm:"not null;index" json:"tenant_id"`
 	SiteID      uint   `gorm:"not null;index" json:"site_id"`
 	Name        string `gorm:"not null" json:"name"`
 	Description string `json:"description"`
@@ -29,6 +30,7 @@ type Unit struct {
 // Equipment represents a specific piece of machinery or instrument within a unit.
 type Equipment struct {
 	gorm.Model
+	TenantID    uint   `gorm:"not null;index" json:"tenant_id"`
 	UnitID      uint   `gorm:"not null;index" json:"unit_id"`
 	Name        string `gorm:"not null" json:"name"`
 	Description string `json:"description"`

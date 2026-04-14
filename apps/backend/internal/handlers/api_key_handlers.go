@@ -27,6 +27,10 @@ func CreateAPIKey(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	var req struct {
 		Name string `json:"name"`
@@ -49,10 +53,11 @@ func CreateAPIKey(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	key := models.APIKey{
-		UserID:  userID,
-		Name:    strings.TrimSpace(req.Name),
-		Prefix:  prefix,
-		KeyHash: string(hash),
+		TenantID: tenantID,
+		UserID:   userID,
+		Name:     strings.TrimSpace(req.Name),
+		Prefix:   prefix,
+		KeyHash:  string(hash),
 	}
 
 	repo := repositories.NewAPIKeyRepository(database.CoreDB)
@@ -83,9 +88,13 @@ func ListAPIKeys(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	repo := repositories.NewAPIKeyRepository(database.CoreDB)
-	keys, err := repo.ListByUser(userID)
+	keys, err := repo.ListByUserAndTenant(userID, tenantID)
 	if err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao buscar chaves"}
 	}
@@ -101,6 +110,10 @@ func RevokeAPIKey(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Usuário não autenticado"}
 	}
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
 
 	if r.Method != http.MethodDelete {
 		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Method not allowed"}
@@ -113,7 +126,7 @@ func RevokeAPIKey(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	repo := repositories.NewAPIKeyRepository(database.CoreDB)
-	if err := repo.Revoke(uint(keyID), userID); err != nil {
+	if err := repo.RevokeByTenant(uint(keyID), userID, tenantID); err != nil {
 		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao revogar chave"}
 	}
 
