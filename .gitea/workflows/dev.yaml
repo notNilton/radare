@@ -43,6 +43,12 @@ jobs:
           GOWORK: "off"
         run: go build ./...
 
+      - name: Build database module
+        working-directory: database
+        env:
+          GOWORK: "off"
+        run: go build ./...
+
   # ========================================================
   # Build do frontend (npm)
   # ========================================================
@@ -79,13 +85,12 @@ jobs:
       - name: Fix Docker Socket Permissions
         run: sudo chmod 666 /var/run/docker.sock
 
-      - name: Validate docker-compose.yml
+      - name: Validate compose.yml
         run: |
-          JWT_SECRET=ci-dummy-secret \
-          DB_HOST=localhost \
-          DB_PORT=5432 \
-          DB_USER=ci \
-          DB_PASSWORD=ci \
-          DB_NAME=ci \
-          docker compose -f docker-compose.yml config --quiet
-          echo "✅ docker-compose.yml válido"
+          JWT_SECRET=ci-dummy-secret docker compose -f compose.yml config --quiet
+          echo "✅ compose.yml válido"
+
+      - name: Validate compose.local.yml
+        run: |
+          docker compose -f compose.local.yml config --quiet
+          echo "✅ compose.local.yml válido"

@@ -101,6 +101,14 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
             -o main ./cmd/api
 
+      - name: Build database module
+        working-directory: database
+        env:
+          GOWORK: "off"
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            ./...
+
       - name: Login to Gitea registry
         run: |
           GITEA_IP=$(docker network inspect nilbyte-git \
