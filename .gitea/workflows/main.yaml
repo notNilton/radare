@@ -155,7 +155,7 @@ jobs:
       - name: Build Frontend
         working-directory: apps/webapp
         run: |
-          npm ci --cache .npm-cache
+          npm ci --cache .npm-cache --legacy-peer-deps
           VITE_API_URL=https://api-radare.nilbyte.com.br \
           VITE_APP_VERSION=${{ needs.bump-versions.outputs.FRONTEND_VERSION }} \
           npm run build

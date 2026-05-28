@@ -67,7 +67,7 @@ jobs:
       - name: Build Frontend
         working-directory: apps/webapp
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
           npm run build
           echo "✅ Frontend build successful"
 
