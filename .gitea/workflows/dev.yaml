@@ -15,7 +15,7 @@ jobs:
   # Build e teste do backend (compilação)
   # ========================================================
   build-backend:
-    runs-on: ubuntu-latest
+    runs-on: runner
     steps:
       - name: Check out repository code
         run: |
@@ -53,7 +53,7 @@ jobs:
   # Build do frontend (npm)
   # ========================================================
   build-frontend:
-    runs-on: ubuntu-latest
+    runs-on: runner
     steps:
       - name: Check out repository code
         run: |
@@ -73,7 +73,7 @@ jobs:
   # Valida arquivos docker-compose
   # ========================================================
   validate-compose:
-    runs-on: ubuntu-latest
+    runs-on: runner
     steps:
       - name: Check out repository code
         run: |
