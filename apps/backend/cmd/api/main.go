@@ -42,7 +42,7 @@ func main() {
 	// Load application configuration from environment variables.
 	cfg := config.Load()
 
-	// Connect to the database and migrate the schema.
+	// Connect to the database. Schema migrations are handled by the container entrypoint.
 	database.ConnectCoreDB(database.CoreConfig{
 		Host:     cfg.DBHost,
 		Port:     cfg.DBPort,
@@ -52,17 +52,9 @@ func main() {
 		SSLMode:  cfg.DBSslMode,
 		TimeZone: "UTC",
 	}.DSN())
-	if err := database.CoreMigrateUp(database.CoreDB); err != nil {
-		slog.Error("Failed to apply database migrations", "error", err)
-		os.Exit(1)
-	}
 
 	// Connect to observability LogDB (optional). Falls back to main DB if unset.
 	database.ConnectLogDB(cfg.LogDBURL)
-	if err := database.LogMigrateUp(database.LogDB); err != nil {
-		slog.Error("Failed to apply LogDB migrations", "error", err)
-		os.Exit(1)
-	}
 
 	// Connect to Redis (optional — app continues if not configured).
 	if err := cache.Connect(cfg.RedisURL); err != nil {

@@ -13,9 +13,9 @@ help:
 	@printf "Usage:\n"
 	@printf "  make db             Start CoreDB + LogDB + Redis (recreate if needed)\n"
 	@printf "  make db-bootstrap   Start DBs, run all migrations and seeds\n"
-	@printf "  make backend        Start backend with air\n"
+	@printf "  make backend        Start backend with air (expects DB bootstrap)\n"
 	@printf "  make webapp         Start webapp with npm run dev\n"
-	@printf "  make dev            Start DBs, backend and webapp\n\n"
+	@printf "  make dev            Start DBs, bootstrap schema, backend and webapp\n\n"
 	@printf "Database helpers:\n"
 	@printf "  make migrate        Run CoreDB migrations\n"
 	@printf "  make seed           Run CoreDB seeds\n"
@@ -77,5 +77,5 @@ webapp:
 	cd $(WEBAPP_DIR) && npm run dev
 
 .PHONY: dev
-dev: db
+dev: db-bootstrap
 	+$(MAKE) -j2 backend webapp
