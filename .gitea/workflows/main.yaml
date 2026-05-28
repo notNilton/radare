@@ -74,6 +74,8 @@ jobs:
   build-backend:
     needs: bump-versions
     runs-on: runner
+    env:
+      GOTOOLCHAIN: auto
     steps:
       - name: Check out repository code
         run: |
