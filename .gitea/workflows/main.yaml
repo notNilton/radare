@@ -127,9 +127,7 @@ jobs:
           if [ -n "$CF_IP" ]; then
             docker run --rm -v /etc/hosts:/host_hosts alpine sh -c "grep -v 'gitea.nilbyte.com.br' /host_hosts > /tmp/h || true; echo '$CF_IP gitea.nilbyte.com.br' >> /tmp/h; cat /tmp/h > /host_hosts"
           fi
-          
-          sudo chmod 666 /var/run/docker.sock
-          echo "${{ secrets.PACKAGES_TOKEN }}" | docker login "$REGISTRY" -u notNilton --password-stdin
+          echo "${{ secrets.TOKEN_COMPLETE }}" | docker login "$REGISTRY" -u notNilton --password-stdin
 
       - name: Build and push Backend image
         run: |
@@ -174,9 +172,7 @@ jobs:
           if [ -n "$CF_IP" ]; then
             docker run --rm -v /etc/hosts:/host_hosts alpine sh -c "grep -v 'gitea.nilbyte.com.br' /host_hosts > /tmp/h || true; echo '$CF_IP gitea.nilbyte.com.br' >> /tmp/h; cat /tmp/h > /host_hosts"
           fi
-          
-          sudo chmod 666 /var/run/docker.sock
-          echo "${{ secrets.PACKAGES_TOKEN }}" | docker login "$REGISTRY" -u notNilton --password-stdin
+          echo "${{ secrets.TOKEN_COMPLETE }}" | docker login "$REGISTRY" -u notNilton --password-stdin
 
       - name: Build and push Frontend image
         run: |

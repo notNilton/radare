@@ -22,7 +22,8 @@ jobs:
       - name: Check out repository code
         run: |
           git config --global credential.helper store
-          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
           git clone --depth=1 --branch "${{ gitea.ref_name }}" \
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
@@ -60,7 +61,8 @@ jobs:
       - name: Check out repository code
         run: |
           git config --global credential.helper store
-          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
           git clone --depth=1 --branch "${{ gitea.ref_name }}" \
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
@@ -80,12 +82,10 @@ jobs:
       - name: Check out repository code
         run: |
           git config --global credential.helper store
-          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
           git clone --depth=1 --branch "${{ gitea.ref_name }}" \
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
-
-      - name: Fix Docker Socket Permissions
-        run: sudo chmod 666 /var/run/docker.sock
 
       - name: Validate compose.yml
         run: |
