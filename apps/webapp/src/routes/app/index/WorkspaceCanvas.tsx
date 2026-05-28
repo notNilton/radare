@@ -56,14 +56,6 @@ function cloneCanvas(nodes: Node<FlowNodeData>[], edges: Edge<FlowEdgeData>[]): 
   };
 }
 
-function shouldTrackNodeChange(change: NodeChange) {
-  return change.type !== 'select' && change.type !== 'dimensions';
-}
-
-function shouldTrackEdgeChange(change: EdgeChange) {
-  return change.type !== 'select';
-}
-
 function CanvasToolsPanel({
   onFileUpload,
   onLoadPreset,
@@ -195,6 +187,11 @@ export function WorkspaceCanvas() {
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
+  const reconcileMutation = useReconcile();
+  const { data: workspaces = [], isLoading: workspacesLoading } = useWorkspaces();
+  const saveWorkspaceMutation = useSaveWorkspace();
+  const deleteWorkspaceMutation = useDeleteWorkspace();
+
   // Auto-load the last active workspace on first mount.
   useEffect(() => {
     if (autoLoadDone.current || workspacesLoading || workspaces.length === 0) return;
@@ -220,11 +217,6 @@ export function WorkspaceCanvas() {
       });
     }
   }, [workspaces, workspacesLoading, setNodes, setEdges]);
-
-  const reconcileMutation = useReconcile();
-  const { data: workspaces = [], isLoading: workspacesLoading } = useWorkspaces();
-  const saveWorkspaceMutation = useSaveWorkspace();
-  const deleteWorkspaceMutation = useDeleteWorkspace();
 
   const edgeNames = useMemo(() => edges.map((edge) => edge.data?.name ?? edge.id), [edges]);
   const adjacencyMatrix = useAdjacencyMatrix(nodes, edges);

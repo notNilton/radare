@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import AboutModal from './AboutModal';
 
@@ -12,23 +12,23 @@ vi.mock('lucide-react', () => ({
 
 describe('AboutModal', () => {
   it('should not render when showAbout is false', () => {
-    render(<AboutModal showAbout={false} toggleAboutPopup={vi.fn()} />);
-    expect(screen.queryByText(/Sobre o Radare/)).not.toBeInTheDocument();
+    const { queryByText } = render(<AboutModal showAbout={false} toggleAboutPopup={vi.fn()} />);
+    expect(queryByText(/Sobre o Radare/)).not.toBeInTheDocument();
   });
 
   it('should render correctly when showAbout is true', () => {
-    render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
-    expect(screen.getByText(/Sobre o Radare/)).toBeInTheDocument();
+    const { getByText, getAllByText } = render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
+    expect(getByText(/Sobre o Radare/)).toBeInTheDocument();
     // RADARE appears multiple times
-    expect(screen.getAllByText(/RADARE/)[0]).toBeInTheDocument();
-    expect(screen.getByText(/Nilton Aguiar dos Santos/)).toBeInTheDocument();
-    expect(screen.getByText(/Go e React Flow/)).toBeInTheDocument();
+    expect(getAllByText(/RADARE/)[0]).toBeInTheDocument();
+    expect(getByText(/Nilton Aguiar dos Santos/)).toBeInTheDocument();
+    expect(getByText(/Go e React Flow/)).toBeInTheDocument();
   });
 
   it('should show contact links', () => {
-    render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
-    expect(screen.getByText('GitHub')).toBeInTheDocument();
-    expect(screen.getByText('LinkedIn')).toBeInTheDocument();
-    expect(screen.getByText('Email')).toBeInTheDocument();
+    const { getByText } = render(<AboutModal showAbout={true} toggleAboutPopup={vi.fn()} />);
+    expect(getByText('GitHub')).toBeInTheDocument();
+    expect(getByText('LinkedIn')).toBeInTheDocument();
+    expect(getByText('Email')).toBeInTheDocument();
   });
 });
