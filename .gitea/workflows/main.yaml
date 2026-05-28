@@ -20,7 +20,8 @@ jobs:
       - name: Check out repository code
         run: |
           git config --global credential.helper store
-          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
           git clone --branch main "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
       - name: Configure Git
@@ -54,7 +55,7 @@ jobs:
           FILES_CHANGED="$FILES_CHANGED frontend-v${FRONTEND_NEW}"
           echo "FRONTEND_VERSION=$FRONTEND_NEW" >> $GITHUB_OUTPUT
 
-          PUSH_URL=$(echo "${{ gitea.server_url }}/${{ gitea.repository }}.git" | sed "s|://|://oauth2:${{ secrets.PACKAGES_TOKEN }}@|")
+          PUSH_URL=$(echo "${{ gitea.server_url }}/${{ gitea.repository }}.git" | sed "s|://|://oauth2:${{ secrets.TOKEN_COMPLETE }}@|")
 
           git commit -m "chore: bump versions $FILES_CHANGED [skip ci]"
           
@@ -77,7 +78,8 @@ jobs:
       - name: Check out repository code
         run: |
           git config --global credential.helper store
-          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
           git clone --depth=1 --branch main \
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
@@ -143,7 +145,8 @@ jobs:
       - name: Check out repository code
         run: |
           git config --global credential.helper store
-          echo "https://oauth2:${{ secrets.PACKAGES_TOKEN }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
           git clone --depth=1 --branch main \
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
