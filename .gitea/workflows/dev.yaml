@@ -1,20 +1,68 @@
-name: On Dev
-run-name: On Dev - ${{ gitea.actor }}
+name: Pull Request
+run-name: PR - ${{ gitea.actor }}
 
 on:
   push:
     branches:
       - development
   pull_request:
-    branches:
-      - development
   workflow_dispatch:
 
 jobs:
-  # ========================================================
-  # Build e teste do backend (compilação)
-  # ========================================================
+  detect-changes:
+    runs-on: runner
+    outputs:
+      BACKEND_CHANGED: ${{ steps.detect.outputs.BACKEND_CHANGED }}
+      WEBAPP_CHANGED: ${{ steps.detect.outputs.WEBAPP_CHANGED }}
+      ANY_CHANGED: ${{ steps.detect.outputs.ANY_CHANGED }}
+      FORCE_ALL: ${{ steps.detect.outputs.FORCE_ALL }}
+    steps:
+      - name: Check out repository code
+        run: |
+          git config --global credential.helper store
+          echo "https://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea.nilbyte.com.br" > ~/.git-credentials
+          echo "http://oauth2:${{ secrets.TOKEN_COMPLETE }}@gitea:3000" >> ~/.git-credentials
+          git clone --depth=1 --branch "${{ gitea.ref_name }}" \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+
+      - name: Detect changed areas
+        id: detect
+        run: |
+          git fetch origin main
+          BASE_REF=$(git merge-base HEAD origin/main)
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF" HEAD)
+
+          BACKEND_CHANGED=false
+          WEBAPP_CHANGED=false
+          FORCE_ALL=false
+
+          if echo "$CHANGED_FILES" | grep -q '^.gitea/workflows/'; then
+            FORCE_ALL=true
+          fi
+
+          if [ "$FORCE_ALL" != "true" ] && echo "$CHANGED_FILES" | grep -Eq '^(apps/backend/|database/)'; then
+            BACKEND_CHANGED=true
+          fi
+
+          if [ "$FORCE_ALL" != "true" ] && echo "$CHANGED_FILES" | grep -q '^apps/webapp/'; then
+            WEBAPP_CHANGED=true
+          fi
+
+          ANY_CHANGED=false
+          if [ "$BACKEND_CHANGED" = "true" ] || [ "$WEBAPP_CHANGED" = "true" ]; then
+            ANY_CHANGED=true
+          fi
+
+          {
+            echo "BACKEND_CHANGED=$BACKEND_CHANGED"
+            echo "WEBAPP_CHANGED=$WEBAPP_CHANGED"
+            echo "ANY_CHANGED=$ANY_CHANGED"
+            echo "FORCE_ALL=$FORCE_ALL"
+          } >> "$GITHUB_OUTPUT"
+
   build-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.BACKEND_CHANGED == 'true' || needs.detect-changes.outputs.FORCE_ALL == 'true'
     runs-on: runner
     env:
       GOTOOLCHAIN: auto
@@ -33,7 +81,6 @@ jobs:
             if [ -x "${GO_DIR}/go" ]; then
               echo "${GO_DIR}" >> $GITHUB_PATH
               export PATH="${GO_DIR}:$PATH"
-              echo "Found Go at ${GO_DIR}/go"
               go version
               exit 0
             fi
@@ -52,10 +99,9 @@ jobs:
           GOWORK: "off"
         run: go build ./...
 
-  # ========================================================
-  # Build do frontend (npm)
-  # ========================================================
-  build-frontend:
+  build-webapp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.WEBAPP_CHANGED == 'true' || needs.detect-changes.outputs.FORCE_ALL == 'true'
     runs-on: runner
     steps:
       - name: Check out repository code
@@ -66,17 +112,13 @@ jobs:
           git clone --depth=1 --branch "${{ gitea.ref_name }}" \
             "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
 
-      - name: Build Frontend
-        working-directory: apps/webapp
+      - name: Build webapp image
         run: |
-          npm ci --legacy-peer-deps
-          npm run build
-          echo "✅ Frontend build successful"
+          docker build -f apps/webapp/Dockerfile -t webapp-ci-check apps/webapp/
 
-  # ========================================================
-  # Valida arquivos docker-compose
-  # ========================================================
   validate-compose:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ANY_CHANGED == 'true' || needs.detect-changes.outputs.FORCE_ALL == 'true'
     runs-on: runner
     steps:
       - name: Check out repository code
