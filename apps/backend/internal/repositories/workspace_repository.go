@@ -40,12 +40,14 @@ func (r *WorkspaceRepository) UpdateByOwnerAndTenant(workspace *models.Workspace
 	return r.db.Model(&models.Workspace{}).
 		Where("id = ? AND owner_id = ? AND tenant_id = ?", workspace.ID, workspace.OwnerID, workspace.TenantID).
 		Updates(map[string]interface{}{
-			"name":         workspace.Name,
-			"description":  workspace.Description,
-			"data":         workspace.Data,
-			"site_id":      workspace.SiteID,
-			"unit_id":      workspace.UnitID,
-			"equipment_id": workspace.EquipmentID,
+			"name":              workspace.Name,
+			"description":       workspace.Description,
+			"data":              workspace.Data,
+			"site_id":           workspace.SiteID,
+			"unit_id":           workspace.UnitID,
+			"equipment_id":      workspace.EquipmentID,
+			"webhook_url":       workspace.WebhookURL,
+			"schedule_interval": workspace.ScheduleInterval,
 		}).Error
 }
 

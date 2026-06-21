@@ -2,9 +2,12 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"radare-datarecon/apps/backend/internal/middleware"
 	"radare-datarecon/apps/backend/internal/models"
@@ -151,6 +154,17 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
 	}
 
+	// Broadcast reconciliation_started event.
+	workspaceIDStr := ""
+	if req.WorkspaceID != nil {
+		workspaceIDStr = fmt.Sprintf("%d", *req.WorkspaceID)
+	}
+	hub.Default.Broadcast("reconciliation_started", map[string]interface{}{
+		"type":         "reconciliation_started",
+		"workspace_id": workspaceIDStr,
+		"timestamp":    time.Now().UTC().Format(time.RFC3339),
+	})
+
 	// Converte a matriz de restrições de [][]float64 para o tipo *mat.Dense esperado pela biblioteca gonum.
 	rows := len(req.Constraints)
 	if rows == 0 {
@@ -225,6 +239,7 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Salva a reconciliação no banco de dados se o usuário estiver autenticado.
+	var savedReconID uint
 	userID, ok := r.Context().Value("userID").(float64)
 	if ok {
 		// Resolve the latest workspace version when the caller provides a workspace_id.
@@ -255,7 +270,9 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 			OutlierTag:          outlierTag,
 			OutlierContribution: result.GlobalTest.OutlierContribution,
 		}
-		_ = repository.Create(&dbRecon)
+		if createErr := repository.Create(&dbRecon); createErr == nil {
+			savedReconID = dbRecon.ID
+		}
 	}
 
 	// Grava um snapshot efêmero no LogDB para auditoria/observabilidade.
@@ -279,6 +296,10 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	})
 
 	// Notifica todos os clientes WebSocket sobre o resultado.
+	statusKey := "ok"
+	if status == "Inconsistente" {
+		statusKey = "inconsistent"
+	}
 	hub.Default.Broadcast(hub.TypeReconciliationResult, map[string]interface{}{
 		"status":               status,
 		"chi_square":           result.GlobalTest.Statistic,
@@ -289,6 +310,20 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 		"outlier_tag":          outlierTag,
 		"outlier_contribution": result.GlobalTest.OutlierContribution,
 	})
+
+	// Broadcast reconciliation_completed event.
+	hub.Default.Broadcast("reconciliation_completed", map[string]interface{}{
+		"type":               "reconciliation_completed",
+		"workspace_id":       workspaceIDStr,
+		"reconciliation_id":  fmt.Sprintf("%d", savedReconID),
+		"status":             statusKey,
+		"timestamp":          time.Now().UTC().Format(time.RFC3339),
+	})
+
+	// Webhook notification when reconciliation is inconsistent and workspace has a webhook URL.
+	if status == "Inconsistente" && req.WorkspaceID != nil && *req.WorkspaceID > 0 {
+		go notifyWebhookIfConfigured(req, result, corrections, req.TagNames, savedReconID, *req.WorkspaceID, *tenantID)
+	}
 
 	// Prepara e envia a resposta de sucesso em formato JSON.
 	w.Header().Set("Content-Type", "application/json")
@@ -309,6 +344,91 @@ func ReconcileData(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return nil
+}
+
+// notifyWebhookIfConfigured fetches the workspace's webhook_url and POSTs
+// a reconciliation_inconsistent payload when one is configured.
+// Runs in a goroutine — never blocks the HTTP response.
+func notifyWebhookIfConfigured(req ReconciliationRequest, result *reconciliation.ReconcileResult, corrections []float64, tagNames []string, reconID uint, workspaceID uint, tenantID uint) {
+	wsRepo := repositories.NewWorkspaceRepository(database.CoreDB)
+	// We need any owner; fetch by workspace ID + tenant only.
+	// Use raw GORM query to avoid needing ownerID here.
+	var ws models.Workspace
+	if err := database.CoreDB.Where("id = ? AND tenant_id = ?", workspaceID, tenantID).First(&ws).Error; err != nil {
+		return
+	}
+	if ws.WebhookURL == "" {
+		return
+	}
+	_ = wsRepo // prevent unused var warning
+
+	// Build per-tag payload.
+	type tagEntry struct {
+		Name           string  `json:"name"`
+		Measured       float64 `json:"measured"`
+		Reconciled     float64 `json:"reconciled"`
+		ChiContribution float64 `json:"chi_contribution"`
+	}
+	tags := make([]tagEntry, len(result.ReconciledValues))
+	for i := range result.ReconciledValues {
+		name := fmt.Sprintf("tag_%d", i)
+		if i < len(tagNames) && tagNames[i] != "" {
+			name = tagNames[i]
+		}
+		measured := 0.0
+		if i < len(req.Measurements) {
+			measured = req.Measurements[i]
+		}
+		tags[i] = tagEntry{
+			Name:       name,
+			Measured:   measured,
+			Reconciled: result.ReconciledValues[i],
+		}
+		// chi contribution is corrections[i]^2 / sigma^2 — store raw correction for now.
+		if i < len(corrections) {
+			tags[i].ChiContribution = corrections[i]
+		}
+	}
+
+	payload := map[string]interface{}{
+		"event":              "reconciliation_inconsistent",
+		"workspace_id":       fmt.Sprintf("%d", workspaceID),
+		"reconciliation_id":  fmt.Sprintf("%d", reconID),
+		"timestamp":          time.Now().UTC().Format(time.RFC3339),
+		"chi_squared":        result.GlobalTest.Statistic,
+		"tags":               tags,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		slog.Warn("Webhook: failed to marshal payload", "error", err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req2, err := http.NewRequestWithContext(ctx, http.MethodPost, ws.WebhookURL, bytes.NewReader(body))
+	if err != nil {
+		slog.Warn("Webhook: failed to create request", "url", ws.WebhookURL, "error", err)
+		return
+	}
+	req2.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req2)
+	if err != nil {
+		slog.Warn("Webhook: POST failed", "url", ws.WebhookURL, "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		slog.Warn("Webhook: server returned error", "url", ws.WebhookURL, "status", resp.StatusCode)
+		return
+	}
+
+	slog.Info("Webhook: notification sent", "url", ws.WebhookURL, "reconciliation_id", reconID)
 }
 
 // GetReconciliationHistory retorna o histórico de reconciliações do usuário autenticado com paginação e filtros.

@@ -18,9 +18,12 @@ import {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getErrorMessage } from '../../../lib/api-client';
+import { queryClient } from '../../../lib/query-client';
 import { saveReconciliationEntry } from '../../../lib/reconciliation-storage';
 import { useReconcile } from '../../../hooks/useReconcile';
+import { useWebSocket } from '../../../hooks/useWebSocket';
 import { useDeleteWorkspace, useSaveWorkspace, useWorkspaces } from '../../../hooks/useWorkspaces';
+import { GrossErrorPanel } from '../../../components/GrossErrorPanel';
 import type { ReconcileResult, Workspace } from '../../../types';
 import { EdgeModal } from './components/EdgeModal';
 import { FlowNode, nodeTypes } from './components/FlowNode';
@@ -28,7 +31,7 @@ import { GhostWire } from './components/GhostWire';
 import { NodeMenu, PaneMenu } from './components/ContextMenus';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { WorkspaceToolbar } from './components/WorkspaceToolbar';
-import { WorkspaceLoadModal, WorkspaceSaveModal } from './components/WorkspaceModals';
+import { WorkspaceLoadModal, WorkspaceSaveModal, WorkspaceVersionDiffModal } from './components/WorkspaceModals';
 import { formatEdgeLabel, generateEdgeName, getCorrectionHeatmapStyle, makeNode, nextNodeId, syncNodeSeq } from './flowUtils';
 import { canvasPresets, initialEdges, initialNodes } from './presets';
 import type { CanvasPreset, EdgeModalState, FlowEdgeData, FlowNodeData, PendingConn, WorkspaceDraft } from './types';
@@ -173,6 +176,7 @@ export function WorkspaceCanvas() {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceDraft | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [versionDiffOpen, setVersionDiffOpen] = useState(false);
   const [history, setHistory] = useState<{ past: CanvasSnapshot[]; future: CanvasSnapshot[] }>({ past: [], future: [] });
 
   const rfInstance = useRef<ReactFlowInstance | null>(null);
@@ -187,10 +191,31 @@ export function WorkspaceCanvas() {
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
+  const [grossErrorOpen, setGrossErrorOpen] = useState(false);
+  const [lastMeasurements, setLastMeasurements] = useState<number[]>([]);
+
   const reconcileMutation = useReconcile();
   const { data: workspaces = [], isLoading: workspacesLoading } = useWorkspaces();
   const saveWorkspaceMutation = useSaveWorkspace();
   const deleteWorkspaceMutation = useDeleteWorkspace();
+
+  // WebSocket connection for real-time updates
+  const { status: wsStatus, lastMessage: wsLastMessage } = useWebSocket();
+
+  // Invalidate history when a reconciliation completes via WebSocket
+  useEffect(() => {
+    if (!wsLastMessage) return;
+    if (
+      wsLastMessage.type === 'reconciliation.result' ||
+      wsLastMessage.type === 'reconciliation_completed'
+    ) {
+      const msgWorkspaceId = wsLastMessage.payload.workspace_id;
+      if (!msgWorkspaceId || msgWorkspaceId === activeWorkspace?.id) {
+        void queryClient.invalidateQueries({ queryKey: ['history'] });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsLastMessage]);
 
   // Auto-load the last active workspace on first mount.
   useEffect(() => {
@@ -548,6 +573,7 @@ export function WorkspaceCanvas() {
         workspace_id: activeWorkspace?.id,
       });
       setReconcileResult(result);
+      setLastMeasurements(measurements);
       applyReconciliationToEdges(result, measurements);
       saveReconciliationEntry({
         id: Date.now(),
@@ -595,20 +621,86 @@ export function WorkspaceCanvas() {
     setSelectedEdgeId(edge.id);
   }, []);
 
+  const wsDotColor = wsStatus === 'connected' ? '#10b981' : wsStatus === 'connecting' ? '#fbbf24' : '#f87171';
+  const wsDotTitle = wsStatus === 'connected' ? 'WS: Conectado' : wsStatus === 'connecting' ? 'WS: Conectando...' : 'WS: Desconectado';
+
   return (
     <div className="flex h-full overflow-hidden" style={pendingConn ? { cursor: 'crosshair' } : undefined}>
       <div className="flex flex-1 flex-col overflow-hidden">
-        <WorkspaceToolbar
-          activeWorkspace={Boolean(activeWorkspace)}
-          onLoadLayouts={() => setLoadModalOpen(true)}
-          onRedo={redoCanvas}
-          onReconcile={() => void reconcile()}
-          onSaveNew={() => openSaveWorkspaceModal('create')}
-          onUndo={undoCanvas}
-          onUpdateLayout={() => openSaveWorkspaceModal('update')}
-          canRedo={history.future.length > 0}
-          canUndo={history.past.length > 0}
-        />
+        <div style={{ position: 'relative' }}>
+          <WorkspaceToolbar
+            activeWorkspace={Boolean(activeWorkspace)}
+            onLoadLayouts={() => setLoadModalOpen(true)}
+            onRedo={redoCanvas}
+            onReconcile={() => void reconcile()}
+            onSaveNew={() => openSaveWorkspaceModal('create')}
+            onUndo={undoCanvas}
+            onUpdateLayout={() => openSaveWorkspaceModal('update')}
+            onCompareVersions={activeWorkspace ? () => setVersionDiffOpen(true) : undefined}
+            canRedo={history.future.length > 0}
+            canUndo={history.past.length > 0}
+          />
+          {/* WebSocket status dot */}
+          <div
+            title={wsDotTitle}
+            style={{
+              position: 'absolute',
+              right: 10,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 10,
+              color: 'var(--tx-3)',
+              userSelect: 'none',
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: wsDotColor,
+                display: 'inline-block',
+                boxShadow: wsStatus === 'connected' ? `0 0 6px ${wsDotColor}` : 'none',
+              }}
+            />
+            <span style={{ display: 'none' }}>{wsStatus}</span>
+          </div>
+        </div>
+
+        {/* Gross Error Panel (shown after reconciliation) */}
+        {reconcileResult && lastMeasurements.length > 0 && grossErrorOpen && (
+          <div style={{ padding: '8px 12px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', overflowY: 'auto', maxHeight: 240 }}>
+            <GrossErrorPanel
+              result={reconcileResult}
+              tagNames={edgeNames}
+              measurements={lastMeasurements}
+            />
+          </div>
+        )}
+        {reconcileResult && lastMeasurements.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '3px 12px', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+            <button
+              type="button"
+              onClick={() => setGrossErrorOpen((v) => !v)}
+              style={{
+                fontSize: 10,
+                color: grossErrorOpen ? 'var(--accent)' : 'var(--tx-3)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}
+            >
+              {grossErrorOpen ? 'Ocultar analise de erro grosseiro' : 'Analise de erro grosseiro'}
+            </button>
+          </div>
+        )}
 
         <div ref={wrapperRef} className="relative flex-1 overflow-hidden">
           <CanvasToolsPanel
@@ -713,6 +805,13 @@ export function WorkspaceCanvas() {
           onDelete={(workspace) => void deleteWorkspace(workspace)}
           onLoad={loadWorkspace}
           workspaces={workspaces}
+        />
+      )}
+
+      {versionDiffOpen && activeWorkspace?.id !== undefined && (
+        <WorkspaceVersionDiffModal
+          workspaceId={activeWorkspace.id}
+          onCancel={() => setVersionDiffOpen(false)}
         />
       )}
     </div>

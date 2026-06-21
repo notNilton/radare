@@ -1,13 +1,106 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Download, FileText, SlidersHorizontal, X } from 'lucide-react';
+import { Download, FileText, Loader, SlidersHorizontal, X } from 'lucide-react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useExportHistory, useExportHistoryPdf, useInfiniteHistory } from '../../../hooks/useHistory';
+import { apiClient, getErrorMessage } from '../../../lib/api-client';
+import { useNotificationStore } from '../../../store/NotificationStore';
+import type { HistoryItem } from '../../../types';
+import type { HistorySearch } from '../history';
+
+function useRowExport() {
+  const push = useNotificationStore((s) => s.push);
+  const [loadingRows, setLoadingRows] = useState<Record<string, Record<string, boolean>>>({});
+
+  async function exportRow(id: number | string, format: 'csv' | 'excel') {
+    const key = String(id);
+    setLoadingRows((prev) => ({ ...prev, [key]: { ...prev[key], [format]: true } }));
+    try {
+      const ext = format === 'csv' ? 'csv' : 'xlsx';
+      const endpoint = `/reconciliations/${key}/export/${format === 'csv' ? 'csv' : 'excel'}`;
+      const blob = await apiClient.getBlob(endpoint);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `reconciliation-${key}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      push({
+        level: 'error',
+        title: 'Erro ao exportar',
+        message: getErrorMessage(err, 'Nao foi possivel exportar o registro.'),
+      });
+    } finally {
+      setLoadingRows((prev) => ({ ...prev, [key]: { ...prev[key], [format]: false } }));
+    }
+  }
+
+  return { exportRow, loadingRows };
+}
+
+function RowExportButtons({ item, exportRow, loadingRows }: {
+  item: HistoryItem;
+  exportRow: (id: number | string, format: 'csv' | 'excel') => Promise<void>;
+  loadingRows: Record<string, Record<string, boolean>>;
+}) {
+  const key = String(item.ID);
+  const loadingCsv = loadingRows[key]?.csv;
+  const loadingXlsx = loadingRows[key]?.excel;
+
+  const btnSmall: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    padding: '3px 7px',
+    fontSize: 10,
+    fontWeight: 500,
+    border: '1px solid var(--border-md)',
+    borderRadius: 3,
+    background: 'transparent',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      <button
+        type="button"
+        disabled={!!loadingCsv}
+        onClick={() => void exportRow(item.ID, 'csv')}
+        style={{ ...btnSmall, color: '#10b981' }}
+        title="Exportar CSV"
+      >
+        {loadingCsv ? <Loader size={10} className="animate-spin" /> : <Download size={10} />}
+        CSV
+      </button>
+      <button
+        type="button"
+        disabled={!!loadingXlsx}
+        onClick={() => void exportRow(item.ID, 'excel')}
+        style={{ ...btnSmall, color: '#0ea5e9' }}
+        title="Exportar Excel"
+      >
+        {loadingXlsx ? <Loader size={10} className="animate-spin" /> : <FileText size={10} />}
+        Excel
+      </button>
+    </div>
+  );
+}
 
 export function HistoryTable() {
-  const [status, setStatus] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Feature 6: Filters stored in URL search params via TanStack Router
+  const search = useSearch({ from: '/app-layout/history' }) as HistorySearch;
+  const navigate = useNavigate({ from: '/history' });
+
   const [exporting, setExporting] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+
+  // Local filter state, initialized from URL
+  const [status, setStatus] = useState(search.status ?? '');
+  const [startDate, setStartDate] = useState(search.startDate ?? '');
+  const [endDate, setEndDate] = useState(search.endDate ?? '');
 
   const observerRef = useRef<HTMLTableRowElement>(null);
 
@@ -15,6 +108,19 @@ export function HistoryTable() {
     () => ({ endDate, startDate, status }),
     [endDate, startDate, status],
   );
+
+  // Sync local state to URL search params when filters change
+  useEffect(() => {
+    void navigate({
+      search: {
+        status: status || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      },
+      replace: true,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, startDate, endDate]);
 
   const {
     data,
@@ -26,6 +132,7 @@ export function HistoryTable() {
 
   const exportHistoryMutation = useExportHistory();
   const exportHistoryPdfMutation = useExportHistoryPdf();
+  const { exportRow, loadingRows } = useRowExport();
 
   const items = useMemo(() => data?.pages.flatMap((page) => page.data ?? []) ?? [], [data]);
   const total = data?.pages[0]?.total ?? 0;
@@ -80,6 +187,12 @@ export function HistoryTable() {
     } finally {
       setExportingPdf(false);
     }
+  }
+
+  function clearFilters() {
+    setStatus('');
+    setStartDate('');
+    setEndDate('');
   }
 
   // ─── Styles ───────────────────────────────────────────────────────────
@@ -155,7 +268,7 @@ export function HistoryTable() {
     <div className="p-6 space-y-6 flex flex-col h-full overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>HISTÓRICO</h1>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--tx-1)' }}>HISTORICO</h1>
           <p className="text-xs" style={{ color: 'var(--tx-2)', marginTop: 4 }}>
             Log de auditoria industrial com rolagem infinita.
           </p>
@@ -182,61 +295,58 @@ export function HistoryTable() {
         </div>
       </header>
 
+      {/* Feature 6: Filter bar with URL search param sync */}
       <section className="shrink-0" style={{
         padding: '20px',
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 4,
-        display: 'grid',
-        gap: '16px',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'
       }}>
-        <label>
-          <span style={lblStyle}><SlidersHorizontal size={12} /> Status</span>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Todos</option>
-            <option value="Consistente">Consistente</option>
-            <option value="Inconsistente">Inconsistente</option>
-          </select>
-        </label>
+        <div className="flex flex-col md:flex-row gap-4">
+          <label style={{ flex: 1 }}>
+            <span style={lblStyle}><SlidersHorizontal size={12} /> Status</span>
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Todos</option>
+              <option value="Consistente">Consistente</option>
+              <option value="Inconsistente">Inconsistente</option>
+            </select>
+          </label>
 
-        <label>
-          <span style={lblStyle}>Data inicial</span>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-            style={inputStyle}
-          />
-        </label>
+          <label style={{ flex: 1 }}>
+            <span style={lblStyle}>Data inicial</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              style={inputStyle}
+            />
+          </label>
 
-        <label>
-          <span style={lblStyle}>Data final</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-            style={inputStyle}
-          />
-        </label>
+          <label style={{ flex: 1 }}>
+            <span style={lblStyle}>Data final</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              style={inputStyle}
+            />
+          </label>
 
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={() => {
-              setStatus('');
-              setStartDate('');
-              setEndDate('');
-            }}
-            style={{ ...btnBase, width: '100%', justifyContent: 'center', height: '36px' }}
-          >
-            <X size={14} />
-            Limpar Filtros
-          </button>
+          <div className="flex items-end gap-2">
+            <button
+              type="button"
+              onClick={clearFilters}
+              style={{ ...btnBase, height: '36px', paddingLeft: 10, paddingRight: 10 }}
+              title="Limpar filtros"
+            >
+              <X size={14} />
+              Limpar
+            </button>
+          </div>
         </div>
       </section>
 
@@ -247,15 +357,17 @@ export function HistoryTable() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <div className="overflow-y-auto flex-1 custom-scrollbar">
-          <table className="w-full border-collapse">
+        {/* Feature 5: overflow-x-auto wrapper to support mobile horizontal scroll */}
+        <div className="overflow-y-auto flex-1 custom-scrollbar overflow-x-auto">
+          <table className="w-full border-collapse" style={{ minWidth: 700 }}>
             <thead>
               <tr>
                 <th style={thStyle}>ID</th>
                 <th style={thStyle}>Data / Hora</th>
                 <th style={thStyle}>Status</th>
-                <th style={thStyle}>Medições</th>
+                <th style={thStyle}>Medicoes</th>
                 <th style={thStyle}>Reconciliados</th>
+                <th style={thStyle}>Exportar</th>
               </tr>
             </thead>
             <tbody>
@@ -285,18 +397,25 @@ export function HistoryTable() {
                   <td style={{ ...tdStyle, fontSize: 10, color: 'var(--tx-2)', fontFamily: 'monospace' }}>
                     {JSON.stringify(item.ReconciledValues ?? [])}
                   </td>
+                  <td style={{ ...tdStyle, padding: '8px 12px' }}>
+                    <RowExportButtons
+                      item={item}
+                      exportRow={exportRow}
+                      loadingRows={loadingRows}
+                    />
+                  </td>
                 </tr>
               ))}
 
               {/* Observer Trigger */}
               <tr ref={observerRef}>
-                <td colSpan={5} style={{ padding: '20px', textAlign: 'center' }}>
+                <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>
                   {isFetchingNextPage ? (
                     <span style={{ fontSize: 11, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Carregando mais...</span>
                   ) : hasNextPage ? (
                     <span style={{ fontSize: 11, color: 'var(--tx-3)', opacity: 0 }}>Trigger</span>
                   ) : items.length > 0 ? (
-                    <span style={{ fontSize: 11, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Fim do histórico • {total} registros</span>
+                    <span style={{ fontSize: 11, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Fim do historico • {total} registros</span>
                   ) : !isLoading && (
                     <span style={{ fontSize: 11, color: 'var(--tx-3)' }}>Nenhum registro encontrado.</span>
                   )}

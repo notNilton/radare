@@ -15,13 +15,15 @@ import (
 )
 
 type workspaceRequest struct {
-	ID          uint                   `json:"id"`
-	SiteID      *uint                  `json:"site_id,omitempty"`
-	UnitID      *uint                  `json:"unit_id,omitempty"`
-	EquipmentID *uint                  `json:"equipment_id,omitempty"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Data        map[string]interface{} `json:"data"`
+	ID               uint                   `json:"id"`
+	SiteID           *uint                  `json:"site_id,omitempty"`
+	UnitID           *uint                  `json:"unit_id,omitempty"`
+	EquipmentID      *uint                  `json:"equipment_id,omitempty"`
+	Name             string                 `json:"name"`
+	Description      string                 `json:"description"`
+	Data             map[string]interface{} `json:"data"`
+	WebhookURL       string                 `json:"webhook_url,omitempty"`
+	ScheduleInterval string                 `json:"schedule_interval,omitempty"`
 }
 
 func authenticatedUserID(r *http.Request) (uint, bool) {
@@ -107,14 +109,16 @@ func SaveWorkspace(w http.ResponseWriter, r *http.Request) error {
 
 	repository := repositories.NewWorkspaceRepository(database.CoreDB)
 	workspace := models.Workspace{
-		Name:        req.Name,
-		Description: strings.TrimSpace(req.Description),
-		OwnerID:     ownerID,
-		TenantID:    tenantID,
-		SiteID:      req.SiteID,
-		UnitID:      req.UnitID,
-		EquipmentID: req.EquipmentID,
-		Data:        req.Data,
+		Name:             req.Name,
+		Description:      strings.TrimSpace(req.Description),
+		OwnerID:          ownerID,
+		TenantID:         tenantID,
+		SiteID:           req.SiteID,
+		UnitID:           req.UnitID,
+		EquipmentID:      req.EquipmentID,
+		Data:             req.Data,
+		WebhookURL:       strings.TrimSpace(req.WebhookURL),
+		ScheduleInterval: strings.TrimSpace(req.ScheduleInterval),
 	}
 	workspace.ID = req.ID
 

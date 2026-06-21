@@ -63,3 +63,15 @@ func (r *HierarchyRepository) UnitExists(tenantID uint, unitID uint) (bool, erro
 	err := r.db.Model(&models.Unit{}).Where("tenant_id = ? AND id = ?", tenantID, unitID).Count(&count).Error
 	return count > 0, err
 }
+
+func (r *HierarchyRepository) DeleteSite(tenantID uint, siteID uint) error {
+	return r.db.Where("tenant_id = ? AND id = ?", tenantID, siteID).Delete(&models.Site{}).Error
+}
+
+func (r *HierarchyRepository) DeleteUnit(tenantID uint, unitID uint) error {
+	return r.db.Where("tenant_id = ? AND id = ?", tenantID, unitID).Delete(&models.Unit{}).Error
+}
+
+func (r *HierarchyRepository) DeleteEquipment(tenantID uint, equipmentID uint) error {
+	return r.db.Where("tenant_id = ? AND id = ?", tenantID, equipmentID).Delete(&models.Equipment{}).Error
+}

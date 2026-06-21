@@ -1,4 +1,4 @@
-import { FolderOpen, Play, RotateCcw, RotateCw, Save } from 'lucide-react';
+import { FolderOpen, GitCompare, Play, RotateCcw, RotateCw, Save } from 'lucide-react';
 
 export function WorkspaceToolbar({
   activeWorkspace,
@@ -8,6 +8,7 @@ export function WorkspaceToolbar({
   onSaveNew,
   onUndo,
   onUpdateLayout,
+  onCompareVersions,
   canRedo,
   canUndo,
 }: {
@@ -20,6 +21,7 @@ export function WorkspaceToolbar({
   onSaveNew: () => void;
   onUndo: () => void;
   onUpdateLayout: () => void;
+  onCompareVersions?: () => void;
 }) {
   const btnBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', fontSize: 11, fontWeight: 500, border: '1px solid var(--border-md)', borderRadius: 3, background: 'transparent', color: 'var(--tx-2)', cursor: 'pointer', whiteSpace: 'nowrap' };
   const btnDisabled: React.CSSProperties = { ...btnBase, color: 'var(--tx-3)', cursor: 'not-allowed', opacity: 0.55 };
@@ -41,6 +43,12 @@ export function WorkspaceToolbar({
           <button type="button" style={btnBase} onClick={onUpdateLayout}><Save size={11} />Atualizar</button>
         )}
         <button type="button" style={btnBase} onClick={onLoadLayouts}><FolderOpen size={11} />Carregar</button>
+        {activeWorkspace && onCompareVersions && (
+          <button type="button" style={btnBase} onClick={onCompareVersions} title="Comparar versoes salvas">
+            <GitCompare size={11} />
+            Comparar
+          </button>
+        )}
       </div>
       {sep}
       {grp('Hist')}

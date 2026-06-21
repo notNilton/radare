@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -36,6 +38,48 @@ func StartPartitionWorker(ctx context.Context, db *gorm.DB) {
 			}
 		}
 	}()
+}
+
+// StartPartitionPruningWorker runs daily and calls prune_old_reconciliation_partitions(N)
+// on coreDB to drop partitions older than PARTITION_RETENTION_DAYS (default 90).
+func StartPartitionPruningWorker(ctx context.Context, db *gorm.DB) {
+	retentionDays := 90
+	if raw := os.Getenv("PARTITION_RETENTION_DAYS"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			retentionDays = parsed
+		}
+	}
+
+	go func() {
+		// Run once shortly after startup.
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
+		pruneOldPartitions(db, retentionDays)
+
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				pruneOldPartitions(db, retentionDays)
+			}
+		}
+	}()
+}
+
+func pruneOldPartitions(db *gorm.DB, retentionDays int) {
+	slog.Info("Partition pruning: running", "retention_days", retentionDays)
+	if err := db.Exec("SELECT prune_old_reconciliation_partitions(?)", retentionDays).Error; err != nil {
+		slog.Warn("Partition pruning: SQL function failed (may not exist yet)", "error", err)
+		return
+	}
+	slog.Info("Partition pruning: completed", "retention_days", retentionDays)
 }
 
 // ensureMonthlyPartitions creates up to `months` monthly partition tables

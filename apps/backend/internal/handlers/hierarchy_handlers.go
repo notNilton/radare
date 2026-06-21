@@ -39,6 +39,16 @@ func SitesV2(w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
+// SiteByIDV2 handles item-level site endpoints: GET and DELETE /api/v2/sites/{id}.
+func SiteByIDV2(w http.ResponseWriter, r *http.Request) error {
+	switch r.Method {
+	case http.MethodDelete:
+		return deleteSite(w, r)
+	default:
+		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Método não permitido"}
+	}
+}
+
 func UnitsV2(w http.ResponseWriter, r *http.Request) error {
 	switch r.Method {
 	case http.MethodGet:
@@ -50,12 +60,32 @@ func UnitsV2(w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
+// UnitByIDV2 handles item-level unit endpoints: DELETE /api/v2/units/{id}.
+func UnitByIDV2(w http.ResponseWriter, r *http.Request) error {
+	switch r.Method {
+	case http.MethodDelete:
+		return deleteUnit(w, r)
+	default:
+		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Método não permitido"}
+	}
+}
+
 func EquipmentV2(w http.ResponseWriter, r *http.Request) error {
 	switch r.Method {
 	case http.MethodGet:
 		return listEquipment(w, r)
 	case http.MethodPost:
 		return createEquipment(w, r)
+	default:
+		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Método não permitido"}
+	}
+}
+
+// EquipmentByIDV2 handles item-level equipment endpoints: DELETE /api/v2/equipment/{id}.
+func EquipmentByIDV2(w http.ResponseWriter, r *http.Request) error {
+	switch r.Method {
+	case http.MethodDelete:
+		return deleteEquipment(w, r)
 	default:
 		return middleware.HTTPError{Code: http.StatusMethodNotAllowed, Message: "Método não permitido"}
 	}
@@ -219,6 +249,69 @@ func optionalUintQuery(r *http.Request, key string) (uint, error) {
 	parsed, err := strconv.ParseUint(raw, 10, 64)
 	if err != nil {
 		return 0, err
+	}
+	return uint(parsed), nil
+}
+
+func deleteSite(w http.ResponseWriter, r *http.Request) error {
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
+	id, err := hierarchyIDFromPath(r.URL.Path, "/api/v2/sites/")
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "ID inválido"}
+	}
+	repo := repositories.NewHierarchyRepository(database.CoreDB)
+	if err := repo.DeleteSite(tenantID, id); err != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao deletar site"}
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+func deleteUnit(w http.ResponseWriter, r *http.Request) error {
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
+	id, err := hierarchyIDFromPath(r.URL.Path, "/api/v2/units/")
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "ID inválido"}
+	}
+	repo := repositories.NewHierarchyRepository(database.CoreDB)
+	if err := repo.DeleteUnit(tenantID, id); err != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao deletar unit"}
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+func deleteEquipment(w http.ResponseWriter, r *http.Request) error {
+	tenantID, ok := middleware.TenantIDFromContext(r.Context())
+	if !ok {
+		return middleware.HTTPError{Code: http.StatusUnauthorized, Message: "Tenant não identificado"}
+	}
+	id, err := hierarchyIDFromPath(r.URL.Path, "/api/v2/equipment/")
+	if err != nil {
+		return middleware.HTTPError{Code: http.StatusBadRequest, Message: "ID inválido"}
+	}
+	repo := repositories.NewHierarchyRepository(database.CoreDB)
+	if err := repo.DeleteEquipment(tenantID, id); err != nil {
+		return middleware.HTTPError{Code: http.StatusInternalServerError, Message: "Erro ao deletar equipment"}
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// hierarchyIDFromPath strips the given prefix and parses the numeric ID segment.
+func hierarchyIDFromPath(path, prefix string) (uint, error) {
+	after := strings.TrimPrefix(path, prefix)
+	seg := strings.SplitN(after, "/", 2)[0]
+	seg = strings.Trim(seg, "/")
+	parsed, err := strconv.ParseUint(seg, 10, 64)
+	if err != nil || parsed == 0 {
+		return 0, strconv.ErrSyntax
 	}
 	return uint(parsed), nil
 }

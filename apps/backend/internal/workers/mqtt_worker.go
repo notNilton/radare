@@ -10,6 +10,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"radare-datarecon/apps/backend/internal/cache"
+	"radare-datarecon/apps/backend/internal/hub"
 	"radare-datarecon/apps/backend/internal/models"
 	"radare-datarecon/apps/backend/internal/repositories"
 	"radare-datarecon/database"
@@ -117,4 +118,12 @@ func handleMessage(ctx context.Context, prefix string, msg mqtt.Message) {
 			"error", err,
 		)
 	}
+
+	// Broadcast tag value update to all connected WebSocket clients.
+	hub.Default.Broadcast(hub.TypeIngestValue, map[string]interface{}{
+		"type":      "tag_value_update",
+		"tag_id":    mapping.TagID,
+		"value":     value,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
 }

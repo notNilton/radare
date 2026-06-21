@@ -22,6 +22,8 @@ help:
 	@printf "  make migrate-log    Run LogDB migrations\n"
 	@printf "  make seed-log       Run LogDB seeds\n"
 	@printf "  make nuke-and-pave  Reset local DB volumes and reapply migrations/seeds\n"
+	@printf "  make backup         Run backup.sh to dump CoreDB + LogDB to BACKUP_DIR\n"
+	@printf "  make db-prune       Run partition pruning and log retention on local DBs\n"
 	@printf "  make db-logs        Follow CoreDB logs\n"
 	@printf "  make db-down        Stop all local compose services\n"
 	@printf "  make status         Show local compose service status\n\n"
@@ -79,3 +81,14 @@ webapp:
 .PHONY: dev
 dev: db-bootstrap
 	+$(MAKE) -j2 backend webapp
+
+.PHONY: backup
+backup:
+	./scripts/backup.sh
+
+.PHONY: db-prune
+db-prune:
+	$(COMPOSE) -f $(COMPOSE_FILE) exec db psql -U $${DB_USER:-radare} -d $${DB_NAME:-radare} \
+		-c "SELECT * FROM prune_old_reconciliation_partitions();"
+	$(COMPOSE) -f $(COMPOSE_FILE) exec logdb psql -U $${DB_USER:-radare} -d $${LOG_DB_NAME:-radare_logs} \
+		-c "SELECT * FROM apply_log_retention();"
