@@ -42,7 +42,6 @@ func main() {
 	// Load application configuration from environment variables.
 	cfg := config.Load()
 
-	// Connect to the database. Schema migrations are handled by the container entrypoint.
 	database.ConnectCoreDB(database.CoreConfig{
 		Host:     cfg.DBHost,
 		Port:     cfg.DBPort,
@@ -53,8 +52,26 @@ func main() {
 		TimeZone: "UTC",
 	}.DSN())
 
+	if err := database.CoreMigrateUp(database.CoreDB); err != nil {
+		slog.Error("CoreDB migration failed", "error", err)
+		os.Exit(1)
+	}
+	if err := database.CoreSeedUp(database.CoreDB); err != nil {
+		slog.Error("CoreDB seed failed", "error", err)
+		os.Exit(1)
+	}
+
 	// Connect to observability LogDB (optional). Falls back to main DB if unset.
 	database.ConnectLogDB(cfg.LogDBURL)
+
+	if err := database.LogMigrateUp(database.LogDB); err != nil {
+		slog.Error("LogDB migration failed", "error", err)
+		os.Exit(1)
+	}
+	if err := database.LogSeedUp(database.LogDB); err != nil {
+		slog.Error("LogDB seed failed", "error", err)
+		os.Exit(1)
+	}
 
 	// Connect to Redis (optional — app continues if not configured).
 	if err := cache.Connect(cfg.RedisURL); err != nil {
@@ -91,8 +108,17 @@ func main() {
 	// Ensure reconciliation partitions exist (runs in background).
 	workers.StartPartitionWorker(workerCtx, database.CoreDB)
 
+	// Start partition pruning worker (drops old partitions per PARTITION_RETENTION_DAYS).
+	workers.StartPartitionPruningWorker(workerCtx, database.CoreDB)
+
+	// Start LogDB retention worker (purges old logs per LOG_RETENTION_DAYS).
+	workers.StartLogDBRetentionWorker(workerCtx, database.LogDB)
+
 	// Start background reconciliation worker.
 	workers.StartReconciliationWorker(workerCtx, 5)
+
+	// Start scheduler worker (triggers reconciliation on workspace schedule intervals).
+	workers.StartSchedulerWorker(workerCtx, database.CoreDB)
 
 	// Instantiate the authentication middleware with the JWT secret.
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
@@ -126,8 +152,14 @@ func main() {
 
 	// API V2 — tenant-scoped industrial hierarchy.
 	http.Handle("/api/v2/sites", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.SitesV2))))))
+	http.Handle("/api/v2/sites/", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.SiteByIDV2))))))
 	http.Handle("/api/v2/units", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.UnitsV2))))))
+	http.Handle("/api/v2/units/", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.UnitByIDV2))))))
 	http.Handle("/api/v2/equipment", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.EquipmentV2))))))
+	http.Handle("/api/v2/equipment/", opts(middleware.LoggingMiddleware(authMiddleware(operadorRole(middleware.ErrorHandler(handlers.EquipmentByIDV2))))))
+
+	// Per-reconciliation exports.
+	http.Handle("/api/reconciliations/", opts(middleware.LoggingMiddleware(authMiddleware(middleware.ErrorHandler(handlers.ReconciliationByIDRouter)))))
 
 	// Admin-only endpoints for user management and role assignment.
 	adminRole := middleware.RequireRole("admin")

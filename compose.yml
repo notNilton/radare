@@ -43,66 +43,6 @@ services:
       retries: 10
       start_period: 30s
 
-  migrate:
-    build:
-      context: ./database
-      dockerfile: Dockerfile
-    container_name: radare-migrate
-    userns_mode: keep-id
-    restart: "no"
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
-      DB_HOST: db
-      DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER:-radare}
-      DB_PASSWORD: ${DB_PASSWORD:-radare}
-      DB_NAME: ${DB_NAME:-radare}
-      DB_SSLMODE: ${DB_SSLMODE:-disable}
-    command: ["up"]
-
-  migrate-log:
-    build:
-      context: ./database
-      dockerfile: Dockerfile
-    container_name: radare-migrate-log
-    userns_mode: keep-id
-    restart: "no"
-    depends_on:
-      logdb:
-        condition: service_healthy
-      migrate-log:
-        condition: service_completed_successfully
-    networks:
-      - app-network
-    environment:
-      LOG_DB_URL: postgresql://${DB_USER:-radare}:${DB_PASSWORD:-radare}@logdb:5432/${LOG_DB_NAME:-radare_logs}?sslmode=disable
-    command: ["log-up"]
-
-  seed:
-    build:
-      context: ./database
-      dockerfile: Dockerfile
-    container_name: radare-seed
-    userns_mode: keep-id
-    restart: "no"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    networks:
-      - app-network
-    environment:
-      DB_HOST: db
-      DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER:-radare}
-      DB_PASSWORD: ${DB_PASSWORD:-radare}
-      DB_NAME: ${DB_NAME:-radare}
-      DB_SSLMODE: ${DB_SSLMODE:-disable}
-    command: ["seed"]
-
   redis:
     image: docker.io/library/redis:7-alpine
     container_name: radare-redis
@@ -126,11 +66,11 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
-      seed:
-        condition: service_completed_successfully
-      redis:
+      db:
         condition: service_healthy
       logdb:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network
@@ -175,6 +115,48 @@ volumes:
     driver: local
   logdb_data:
     driver: local
+  postgres_backups:
+    driver: local
+
+# ---------------------------------------------------------------------------
+# Optional backup service — uncomment to enable nightly dumps.
+# Runs backup.sh every 24 hours (86400 s). Archives are written to the
+# postgres_backups volume. Tune env vars to match your production DSNs.
+#
+#  backup:
+#    image: docker.io/library/postgres:18-alpine
+#    container_name: radare-backup
+#    userns_mode: keep-id
+#    restart: unless-stopped
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      logdb:
+#        condition: service_healthy
+#    networks:
+#      - app-network
+#    volumes:
+#      - ./scripts:/scripts:ro,Z
+#      - postgres_backups:/var/backups/radare:Z
+#    environment:
+#      POSTGRES_HOST: db
+#      POSTGRES_PORT: "5432"
+#      POSTGRES_USER: ${DB_USER:-radare}
+#      POSTGRES_PASSWORD: ${DB_PASSWORD:-radare}
+#      POSTGRES_DB: ${DB_NAME:-radare}
+#      LOGDB_HOST: logdb
+#      LOGDB_PORT: "5432"
+#      LOGDB_USER: ${DB_USER:-radare}
+#      LOGDB_PASSWORD: ${DB_PASSWORD:-radare}
+#      LOGDB_DB: ${LOG_DB_NAME:-radare_logs}
+#      BACKUP_DIR: /var/backups/radare
+#      BACKUP_KEEP_DAYS: "30"
+#    command: >
+#      sh -c "while true; do
+#               /scripts/backup.sh;
+#               sleep 86400;
+#             done"
+# ---------------------------------------------------------------------------
 
 networks:
   app-network:

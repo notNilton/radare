@@ -7,4 +7,4 @@ FROM (VALUES
 ) AS t(name, description, unit)
 CROSS JOIN tenants
 WHERE tenants.slug = 'nilbyte'
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT (tenant_id, name) WHERE deleted_at IS NULL DO NOTHING;
