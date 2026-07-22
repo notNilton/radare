@@ -88,7 +88,7 @@
 
 ---
 
-## 📊 Fase 5 - Conectividade e Enterprise (Atual)
+## 📊 Fase 5 - Conectividade e Enterprise
 
 ### 🚀 Backend (Infraestrutura & Ingestão)
 - [x] **Dual Database Architecture:** Configurar banco secundário (LogDB) isolado para logs e auditoria.
@@ -109,51 +109,31 @@
 
 ---
 
-## 💎 Fase 6 - Evolução Multi-Tenant e Escala
+## ⚙️ Fase 6 - Otimização Heurística e Reconciliação Avançada (Atual)
 
-### 🚀 Backend (Arquitetura SaaS)
-- [ ] **Isolamento de Dados:** Implementar `tenant_id` e Row Level Security (RLS) no Postgres.
-- [ ] **Hierarquia de Ativos:** Cadastro de `Facilities`, `Assets` e versionamento de templates.
-- [ ] **Processamento Assíncrono:** Fila de `Jobs` para reconciliações de larga escala.
-- [ ] **Idempotência:** Garantir integridade de execuções simultâneas via chaves únicas.
-- [ ] **Outbox Pattern:** Garantir consistência eventual entre persistência e notificações externas.
-
-### 🎨 Frontend (Gestão Enterprise)
-- [ ] **Switch de Workspace/Tenant:** Interface para troca rápida de contexto de empresa.
-- [ ] **Dashboard Multi-Unidade:** Visão agregada de performance entre diferentes plantas.
-
----
-
-## ⚙️ Fase 07 - Otimização Heurística e Algoritmos Genéticos
+> Substitui o antigo plano de multi-tenancy/SaaS — removido por não agregar contribuição
+> científica. Detalhamento completo em `06-PHASE-6-HEURISTIC-OPTIMIZATION.md`, cuja Seção 0
+> define o protocolo de metodologia científica (hipóteses, baselines robustos, dataset real,
+> significância estatística, reprodutibilidade) obrigatório também para a Fase 7.
 
 ### 🚀 Backend (Advanced Engineering)
-- [ ] **Genetic Algorithm Solver:** Implementar solver para encontrar pesos ideais de sensores onde a variância é desconhecida.
-- [ ] **Constraint Programming:** Adicionar restrições de desigualdade (ex: vazão mínima em válvulas) no cálculo de reconciliação.
-- [ ] **Detecção de Drift:** Algoritmo para identificar degradação de precisão em sensores ao longo do tempo.
+- [ ] **Genetic Algorithm Solver:** solver para encontrar pesos ideais quando a variância dos sensores é desconhecida, com harness comparativo contra o solver de Lagrange existente.
+- [ ] **Constraint Programming:** restrições de desigualdade (ex: vazão mínima em válvulas) no cálculo de reconciliação.
+- [ ] **Reconciliação Dinâmica:** extensão do modelo steady-state atual para séries temporais.
+- [ ] **Detecção de Drift:** algoritmo (CUSUM/EWMA) para identificar degradação de precisão em sensores ao longo do tempo.
+- [ ] **Design Ótimo de Rede de Sensores:** análise de redundância/observabilidade e recomendação de posicionamento de sensores dado um orçamento.
 
 ---
 
-## 🛡️ Fase 08 - Stress Testing e Robustez de Dados
+## 🛡️ Fase 7 - Stress Testing, Robustez e Validação Estatística
 
-### 🧪 Qualidade Industrial
-- [ ] **Data Fuzzing:** Engine para injetar dados sintéticos corrompidos e testar a resiliência do algoritmo de Qui-quadrado.
-- [ ] **Sanity Checker:** Validador termodinâmico básico para impedir resultados fisicamente impossíveis.
-- [ ] **Monte Carlo Simulations:** Executar múltiplas reconciliações com perturbação nos inputs para análise de incerteza.
+> Substitui o antigo plano de Edge Computing e Digital Twins/Alta Disponibilidade — removidos por
+> serem escopo de infraestrutura de produto, não de pesquisa. Detalhamento completo em
+> `07-PHASE-7-ROBUSTNESS-VALIDATION.md`.
 
----
-
-## 🏗️ Fase 09 - Integração de Campo e Edge Computing
-
-### 🔌 Conectividade Real
-- [ ] **Radare Edge:** Versão leve para rodar em ARM/Gateways de campo via Docker.
-- [ ] **Local Buffering:** Persistência temporária em SQLite no Edge para casos de queda de link com a nuvem.
-- [ ] **Protocols V2:** Implementar suporte nativo a OPC-UA e Modbus TCP.
-
----
-
-## 🌐 Fase 10 - Digital Twins e Alta Disponibilidade
-
-### 🚀 Escala Global
-- [ ] **Federated Sync:** Sincronização entre múltiplas instâncias regionais do Radare.
-- [ ] **3D Process Mapping:** Interface para mapear o grafo sobre modelos 3D (BIM) simplificados no frontend.
-- [ ] **Disaster Recovery:** Replicação geográfica de banco de dados e failover automático.
+### 🧪 Qualidade Industrial e Validação Empírica
+- [ ] **Data Fuzzing:** motor para injetar erros sintéticos (bias, drift, sensor travado, ruído inflacionado) com ground truth versionado.
+- [ ] **Sanity Checker:** validador físico/termodinâmico básico para impedir resultados fisicamente impossíveis.
+- [ ] **Monte Carlo Simulations:** múltiplas reconciliações com perturbação nos inputs para intervalo de confiança (ISO GUM).
+- [ ] **Detecção Híbrida de Erro Grosseiro:** classificador de ML treinado sobre dados fuzzados, comparado ao Teste Global/GLR clássico.
+- [ ] **Framework de Benchmarking:** precisão/recall entre métodos de detecção, com relatório exportável para uso em publicação/anteprojeto.

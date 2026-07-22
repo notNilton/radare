@@ -1,6 +1,6 @@
-# 07 - Auditoria e Análise de Fragilidades
+# 08 - Auditoria e Análise de Fragilidades
 
-> **Status: [x] Resolvido** — 6/7 itens endereçados. Item 2 (Multi-tenancy) em andamento na Fase 6.
+> **Status: [x] Resolvido** — 6/7 itens endereçados. Item 2 (Multi-tenancy) fora do escopo ativo — ver nota abaixo.
 
 Este documento identifica as limitações e riscos da arquitetura atual do **Radare** para orientar as refatorações e expansões futuras.
 
@@ -16,7 +16,7 @@ Este documento identifica as limitações e riscos da arquitetura atual do **Rad
 ## 2. Escalabilidade e Multi-tenancy (Limitação)
 - [ ] **Problema:** Não há isolamento entre empresas. Todos os usuários compartilham o mesmo banco de dados de tags e reconciliações sem um vínculo de empresa (tenant).
 - [ ] **Impacto:** O software não pode ser vendido como SaaS (Software as a Service) para múltiplos clientes reais simultâneos.
-- [ ] **Plano de Ação (Fase 6):** Redesenho multi-tenant com `tenant_id` + RLS — em andamento.
+- [ ] **Nota:** deliberadamente fora do roadmap ativo. É escopo de produto/negócio, não de contribuição científica, e foi removido das Fases 6/7 para priorizar a agenda de pesquisa (ver `06-PHASE-6-HEURISTIC-OPTIMIZATION.md` e `07-PHASE-7-ROBUSTNESS-VALIDATION.md`). Pode voltar a ser relevante se o projeto migrar para um plano de produto/comercialização no futuro.
 
 ---
 
