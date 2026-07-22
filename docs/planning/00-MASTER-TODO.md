@@ -117,11 +117,22 @@
 > significância estatística, reprodutibilidade) obrigatório também para a Fase 7.
 
 ### 🚀 Backend (Advanced Engineering)
-- [ ] **Genetic Algorithm Solver:** solver para encontrar pesos ideais quando a variância dos sensores é desconhecida, com harness comparativo contra o solver de Lagrange existente.
-- [ ] **Constraint Programming:** restrições de desigualdade (ex: vazão mínima em válvulas) no cálculo de reconciliação.
-- [ ] **Reconciliação Dinâmica:** extensão do modelo steady-state atual para séries temporais.
-- [ ] **Detecção de Drift:** algoritmo (CUSUM/EWMA) para identificar degradação de precisão em sensores ao longo do tempo.
-- [ ] **Design Ótimo de Rede de Sensores:** análise de redundância/observabilidade e recomendação de posicionamento de sensores dado um orçamento.
+- [x] **Genetic Algorithm Solver:** implementado (`internal/reconciliation/heuristics/`) com harness
+      comparativo contra o Lagrange existente. Falta rota de API e validação nos Exemplos 1/3/4.
+- [x] **Constraint Programming:** desigualdades resolvidas via penalidade no próprio solver genético.
+      Falta persistir `min`/`max` no modelo de `Workspace`.
+- [x] **Reconciliação Dinâmica:** filtro temporal (EWMA sobre snapshots) implementado como baseline
+      simplificado — não é Kalman completo, e ainda não testado com dado real de MQTT/InfluxDB.
+- [x] **Detecção de Drift:** CUSUM/EWMA implementados e testados com drift sintético. Falta persistir
+      `drift_score` no LogDB e comparar tempo de detecção contra o Teste Global da Fase 4.
+- [x] **Design Ótimo de Rede de Sensores:** observabilidade/redundância e sugestão gulosa de sensores
+      implementadas e testadas. Falta encanar com o grafo real de um `Workspace`.
+- [x] **Baseline robusto (não estava na lista original, exigido pela Seção 0.2):** IRLS com
+      M-estimadores de Huber e Fair (`internal/reconciliation/robust/`).
+
+> Todos os itens acima têm código + testes unitários passando (`go test ./...`), mas nenhuma rota de
+> API, UI ou persistência em banco — ver `06-PHASE-6-HEURISTIC-OPTIMIZATION.md` para o detalhamento
+> exato do que falta por seção.
 
 ---
 

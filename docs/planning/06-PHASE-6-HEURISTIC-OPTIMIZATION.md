@@ -1,6 +1,8 @@
 # 06 - Estratégia da Fase 6: Otimização Heurística e Reconciliação Avançada
 
-> **Status: [ ] Planejada** — Núcleo da agenda de pesquisa do projeto (ver `docs/references/01-RECONCILIATION-THEORY.md`).
+> **Status: [~] Em andamento** — núcleo algorítmico implementado em Go (5 pacotes, todos com
+> testes passando); API/frontend/protocolo de pesquisa completo (Seção 0) ainda pendentes. Ver
+> `docs/references/01-RECONCILIATION-THEORY.md`.
 
 A Fase 6 substitui o antigo plano de multi-tenancy/SaaS, que foi descontinuado por não agregar
 contribuição científica ao projeto. Em seu lugar, esta fase concentra o trabalho algorítmico que
@@ -44,12 +46,14 @@ Comparar o GA e o classificador híbrido apenas contra o Lagrange multiplier atu
 um revisor vai perguntar "por que não comparou com os métodos robustos padrão do campo". É
 obrigatório incluir como baseline, antes de reivindicar qualquer ganho:
 
-- **M-estimador de Huber** e **Fair function** (estimadores robustos clássicos para reconciliação
-  na presença de erro grosseiro).
-- **Modified Iterative Measurement Test (MIMT)** — alternativa clássica ao Teste Global para
-  identificação serial de outliers.
-- O GLR (Narasimhan & Mah, 1987), já referenciado na Fase 7, precisa estar implementado como
-  baseline funcional, não apenas citado.
+- [x] **M-estimador de Huber** e **Fair function** — implementados em
+      `internal/reconciliation/robust/robust.go` via IRLS reaproveitando o solver de Lagrange
+      existente; testado em `robust_test.go` (down-weighting do sensor mais inconsistente,
+      verificado de forma auto-consistente contra a baseline OLS).
+- [ ] **Modified Iterative Measurement Test (MIMT)** — alternativa clássica ao Teste Global para
+      identificação serial de outliers. Não implementado.
+- [ ] O GLR (Narasimhan & Mah, 1987), já referenciado na Fase 7, precisa estar implementado como
+      baseline funcional, não apenas citado. Não implementado.
 
 ### 0.3 Dataset real ou benchmark público (não só os Exemplos 1-4)
 
@@ -100,14 +104,21 @@ sensores é desconhecida ou não-gaussiana, essa premissa falha — um gap ident
 (Romagnoli & Sanchez, 2000).
 
 ### 🚀 Backend
-- [ ] **Novo pacote `internal/reconciliation/heuristics/`:**
-    - [ ] Codificar o cromossomo como vetor de pesos/incertezas por tag.
-    - [ ] Função de fitness = erro quadrático ponderado + penalidade por violação de balanço.
-    - [ ] Operadores de seleção (torneio), crossover (aritmético) e mutação (gaussiana) configuráveis via struct `GAConfig`.
-- [ ] **Harness comparativo:**
-    - [ ] Rodar GA e Lagrange sobre os mesmos `Exemplo 1-4` (já usados na Fase 4) e registrar divergência entre soluções.
-    - [ ] Métrica de convergência (gerações até estabilizar) e tempo de execução.
-- [ ] **Rota de API:** `POST /api/reconcile/heuristic` retornando solução + histórico de fitness por geração (para plot de convergência no frontend).
+- [x] **Novo pacote `internal/reconciliation/heuristics/`** (`genetic.go`):
+    - [x] Cromossomo real-coded (vetor de valores reconciliados, não pesos — a busca varre o espaço de
+          soluções diretamente, com `searchRange` derivado da tolerância de cada medição).
+    - [x] Função de fitness = erro quadrático ponderado + penalidade por violação de balanço
+          (`ConstraintPenalty`) + penalidade por violação de bounds (`BoundsPenalty`, ver Seção 2).
+    - [x] Seleção por torneio, crossover aritmético e mutação gaussiana, configuráveis via `Config`
+          (incluindo `Seed` para reprodutibilidade, per Seção 0.5).
+- [x] **Harness comparativo** (`benchmark.go`, `Compare()`): roda GA e Lagrange sobre o mesmo problema
+      e reporta `MaxAbsoluteDifference` — valida H1 (Seção 0.1). Testado com o Exemplo 2 (mesmo fixture
+      de `reconciliation_test.go`); **os Exemplos 1, 3 e 4 ainda não foram rodados pelo harness**.
+    - [ ] Métrica de tempo de execução (wall-clock) ainda não instrumentada — só gerações/convergência.
+- [ ] **Rota de API:** `POST /api/reconcile/heuristic` — não implementada.
+
+> **Baseline robusto adicional:** ver `internal/reconciliation/robust/` (Huber/Fair via IRLS),
+> requisito da Seção 0.2 — necessário para qualquer alegação de que o GA "supera" métodos existentes.
 
 ### 🎨 Frontend
 - [ ] Gráfico de convergência do GA (fitness por geração) na tela de resultado.
@@ -122,11 +133,14 @@ físicos (vazão mínima em válvula, capacidade máxima de tanque) que a litera
 restrições de desigualdade no problema de otimização.
 
 ### 🚀 Backend
-- [ ] Estender o modelo de `Workspace`/grafo para permitir `min`/`max` por aresta.
-- [ ] Avaliar formulação como NLP com penalidade (compatível com o solver genético) vs. QP com
-      biblioteca externa (`gonum/optimize` já é dependência do projeto).
-- [ ] Testes com topologia que force violação de restrição (ex.: vazão negativa) e validar que o
-      solver rejeita ou ajusta a solução corretamente.
+- [x] Formulação como NLP com penalidade: `heuristics.Bounds{Min, Max}` por variável, com violação
+      penalizada na função de fitness do GA (`BoundsPenalty`) — resolvido pelo mesmo solver da
+      Seção 1, já que o Lagrange multiplier não tem como expressar desigualdades analiticamente.
+- [x] Teste (`TestSolveRespectsInequalityBounds`) força uma medição fora do limite físico (100,
+      limitado a [0,50]) e valida que o GA converge para perto da fronteira factível.
+- [ ] Estender o modelo de `Workspace`/grafo para permitir `min`/`max` por aresta na UI/persistência —
+      não implementado (hoje os bounds só existem como parâmetro de função, não como dado salvo).
+- [ ] Avaliação de QP via `gonum/optimize` como alternativa ao método de penalidade — não avaliada.
 
 ---
 
@@ -137,13 +151,19 @@ dinâmico é uma linha de pesquisa própria (Kim et al., 1990 — "Dynamic data 
 and Terminology").
 
 ### 🚀 Backend
-- [ ] Modelo de filtro (ex.: Kalman ou janela deslizante ponderada) sobre o histórico de leituras
-      já ingerido via MQTT/InfluxDB (Fase 5).
-- [ ] Comparar reconciliação "por snapshot" (atual) vs. "com memória temporal" no mesmo dataset,
-      medindo redução de ruído residual.
+- [x] Filtro implementado em `internal/reconciliation/dynamic/dynamic.go`: EWMA recursivo sobre a
+      série de soluções steady-state (`Reconcile()` roda o solver de Lagrange em cada snapshot e
+      combina com a memória via `Config.Lambda`). **Simplificação explícita e documentada no
+      próprio pacote**: não é um filtro de Kalman completo (sem covariância de processo estimada),
+      é um baseline para comparar antes de investir num modelo de espaço de estados completo.
+- [x] Teste (`TestReconcileSmoothingReducesNoiseVersusSteadyStateAlone`) compara variância da série
+      "por snapshot" vs. "com memória temporal" sob um processo constante com ruído sintético,
+      confirmando redução de ruído — ainda **não rodado contra dado real/MQTT-InfluxDB** (Fase 5),
+      só contra série sintética.
 
 ### 🎨 Frontend
-- [ ] Sobrepor no gráfico de tendência (Fase 4) a série reconciliada dinâmica vs. estática.
+- [ ] Sobrepor no gráfico de tendência (Fase 4) a série reconciliada dinâmica vs. estática — não
+      implementado.
 
 ---
 
@@ -153,9 +173,15 @@ and Terminology").
 que o Teste Global (Qui-quadrado, Fase 4) não captura por ser um teste instantâneo.
 
 ### 🚀 Backend
-- [ ] Implementar carta de controle CUSUM ou EWMA sobre o resíduo histórico por tag.
-- [ ] Alerta quando o viés acumulado ultrapassar limiar configurável (por tag ou por classe de instrumento).
-- [ ] Persistir `drift_score` no LogDB junto aos audit logs existentes (Fase 5).
+- [x] Carta de controle CUSUM e EWMA implementadas em `internal/reconciliation/drift/drift.go`,
+      ambas com limiar configurável (`Threshold`/`L`) e reportando o índice da amostra onde o alarme
+      dispara.
+- [x] Teste com drift sintético gradual (`TestCUSUMDetectsGradualDriftWithoutFalseAlarm`,
+      `TestEWMADetectsGradualDriftWithoutFalseAlarm`) valida detecção sem falso alarme na fase estável
+      — infraestrutura para testar H2 (Seção 0.1), mas **a comparação formal contra o Teste Global
+      (χ²) da Fase 4 ainda não foi feita** (falta medir "tempo médio de detecção" de cada método
+      lado a lado).
+- [ ] Persistir `drift_score` no LogDB junto aos audit logs existentes (Fase 5) — não implementado.
 
 ---
 
@@ -166,22 +192,32 @@ problema de otimização custo-benefício, não como dado fixo. O Radare hoje as
 (incluindo quais correntes têm sensor) como entrada estática.
 
 ### 🚀 Backend
-- [ ] Classificador de observabilidade: dado um grafo, identificar quais variáveis são calculáveis
-      sem sensor direto (Kretsovalis & Mah, 1987).
-- [ ] Métrica de grau de redundância por nó/aresta.
-- [ ] Rotina "sugestão de sensor": dado um orçamento (N sensores adicionais), recomendar as posições
-      que maximizam ganho de redundância.
+- [x] Classificador de observabilidade implementado em
+      `internal/reconciliation/sensornetwork/observability.go` (`Analyze()`), via eliminação
+      sequencial (equação com exatamente 1 incógnita resolve; sobra vira redundância) — testado com
+      topologia conhecida (splitter de 4 variáveis, 2 equações), incluindo os casos sub-instrumentado,
+      totalmente observável e sobre-instrumentado.
+- [x] Grau de redundância (`Report.Redundancy`) calculado no mesmo passo.
+- [x] `SuggestSensors()` — recomendação gulosa de onde adicionar sensores dado um orçamento,
+      maximizando redundância resultante; testado (`TestSuggestSensorsAchievesFullObservability`).
+- [ ] **Ainda não validado contra os Exemplos 1-4 reais do Radare** (só contra a topologia sintética
+      de teste) nem contra um grafo de `Workspace` de verdade — falta o encanamento
+      grafo-do-canvas → matriz de restrições.
 
 ### 🎨 Frontend
 - [ ] Overlay no Canvas mostrando "grau de redundância" por aresta (similar ao heatmap de correção
-      da Fase 4) e sugestão visual de onde adicionar sensores.
+      da Fase 4) e sugestão visual de onde adicionar sensores — não implementado.
 
 ---
 
 ## 🧪 Estratégia de Testes
-- [ ] Suite de benchmarks Go (`testing.B`) comparando Lagrange vs. GA em tempo e qualidade de solução.
-- [ ] Casos de teste com restrições de desigualdade violadas propositalmente.
-- [ ] Dataset sintético com drift injetado gradualmente para validar o CUSUM/EWMA.
+- [x] Testes unitários (`go test`) para os 5 pacotes novos, todos passando:
+      `heuristics` (GA + harness comparativo), `robust` (IRLS Huber/Fair), `drift` (CUSUM/EWMA),
+      `sensornetwork` (observabilidade/redundância) e `dynamic` (filtro temporal).
+- [x] Caso de teste com restrição de desigualdade violada propositalmente (`TestSolveRespectsInequalityBounds`).
+- [x] Dataset sintético com drift injetado gradualmente (`syntheticResiduals` em `drift_test.go`).
+- [ ] Suite de *benchmarks* Go (`testing.B`, medição de tempo de execução) comparando Lagrange vs. GA
+      — ainda não escrita, só os testes de corretude/convergência.
 
 ## 📅 Cronograma Sugerido
 - [ ] **Semanas 1-2:** Solver genético + harness comparativo.
