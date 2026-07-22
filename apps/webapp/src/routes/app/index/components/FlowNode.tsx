@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
-import { Handle, Position, useStore, type NodeProps } from 'reactflow';
+import { Handle, Position, useStore, type NodeProps, type Node } from '@xyflow/react';
 import type { FlowNodeData } from '../types';
 
 function calcHandleTop(i: number, total: number): string {
   return `${((i + 1) / (total + 1)) * 100}%`;
 }
 
-export function FlowNode({ id, data }: NodeProps<FlowNodeData>) {
+export function FlowNode({ id, data }: NodeProps<Node<FlowNodeData>>) {
   const inEdges = useStore(useCallback((s) => s.edges.filter((e) => e.target === id), [id]));
   const outEdges = useStore(useCallback((s) => s.edges.filter((e) => e.source === id), [id]));
 

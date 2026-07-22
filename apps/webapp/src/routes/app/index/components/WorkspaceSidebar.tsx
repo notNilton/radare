@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Edge } from 'reactflow';
+import type { Edge } from '@xyflow/react';
 import { getReconciliationHistory } from '../../../../lib/reconciliation-storage';
 import type { ReconciliationEntry, ReconcileResult } from '../../../../types';
 import type { FlowEdgeData } from '../types';

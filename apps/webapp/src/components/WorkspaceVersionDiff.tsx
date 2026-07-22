@@ -1,8 +1,8 @@
 import type { WorkspaceVersion } from '../hooks/useWorkspaceVersions';
-import type { Node, Edge } from 'reactflow';
+import type { Node, Edge } from '@xyflow/react';
 
-interface FlowNodeData { label: string; }
-interface FlowEdgeData { name?: string; value?: number; tolerance?: number; }
+interface FlowNodeData extends Record<string, unknown> { label: string; }
+interface FlowEdgeData extends Record<string, unknown> { name?: string; value?: number; tolerance?: number; }
 
 type DiffStatus = 'added' | 'removed' | 'changed' | 'unchanged';
 

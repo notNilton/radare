@@ -1,4 +1,4 @@
-import type { Edge, Node, Viewport } from 'reactflow';
+import type { Edge, Node, Viewport } from '@xyflow/react';
 import type { WorkspaceFlowData } from '../../../types';
 import type { FlowEdgeData, FlowNodeData } from './types';
 

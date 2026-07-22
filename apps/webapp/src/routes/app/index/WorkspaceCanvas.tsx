@@ -15,8 +15,8 @@ import {
   type EdgeChange,
   type NodeChange,
   type ReactFlowInstance,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { getErrorMessage } from '../../../lib/api-client';
 import { queryClient } from '../../../lib/query-client';
 import { saveReconciliationEntry } from '../../../lib/reconciliation-storage';
@@ -160,8 +160,8 @@ function useAdjacencyMatrix(nodes: Node<FlowNodeData>[], edges: Edge<FlowEdgeDat
 }
 
 export function WorkspaceCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<FlowEdgeData>>(initialEdges);
   const [status, setStatus] = useState<string | null>(null);
   const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -179,7 +179,7 @@ export function WorkspaceCanvas() {
   const [versionDiffOpen, setVersionDiffOpen] = useState(false);
   const [history, setHistory] = useState<{ past: CanvasSnapshot[]; future: CanvasSnapshot[] }>({ past: [], future: [] });
 
-  const rfInstance = useRef<ReactFlowInstance | null>(null);
+  const rfInstance = useRef<ReactFlowInstance<Node<FlowNodeData>, Edge<FlowEdgeData>> | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hoveredNodeId = useRef<string | null>(null);
   const suppressNextCtx = useRef(false);
@@ -281,11 +281,11 @@ export function WorkspaceCanvas() {
     setSelectedEdgeId(null);
   }, [history.future, setEdges, setNodes]);
 
-  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+  const handleNodesChange = useCallback((changes: NodeChange<Node<FlowNodeData>>[]) => {
     onNodesChange(changes);
   }, [onNodesChange]);
 
-  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+  const handleEdgesChange = useCallback((changes: EdgeChange<Edge<FlowEdgeData>>[]) => {
     onEdgesChange(changes);
   }, [onEdgesChange]);
 
@@ -421,7 +421,7 @@ export function WorkspaceCanvas() {
   const onPaneClick = useCallback(() => {
     if (pendingConn) setPendingConn(null);
   }, [pendingConn]);
-  const onPaneContextMenu = useCallback((e: React.MouseEvent) => {
+  const onPaneContextMenu = useCallback((e: React.MouseEvent | MouseEvent) => {
     if (pendingConn) { setPendingConn(null); return; }
     if (suppressNextCtx.current) { suppressNextCtx.current = false; return; }
     e.preventDefault();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createWorkspaceFlowData, restoreWorkspaceFlowData } from './workspaceFlow';
 import type { FlowEdgeData, FlowNodeData } from './types';
-import type { Edge, Node } from 'reactflow';
+import type { Edge, Node } from '@xyflow/react';
 
 describe('workspace flow serialization', () => {
   it('preserva grafos complexos ao salvar e restaurar', () => {

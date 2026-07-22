@@ -1,10 +1,10 @@
-import type { Connection, Edge } from 'reactflow';
+import type { Connection, Edge, Node } from '@xyflow/react';
 
-export interface FlowNodeData {
+export interface FlowNodeData extends Record<string, unknown> {
   label: string;
 }
 
-export interface FlowEdgeData {
+export interface FlowEdgeData extends Record<string, unknown> {
   name: string;
   value: number;
   tolerance: number;
@@ -37,6 +37,6 @@ export interface WorkspaceDraft {
 export interface CanvasPreset {
   id: string;
   name: string;
-  nodes: import('reactflow').Node<FlowNodeData>[];
+  nodes: Node<FlowNodeData>[];
   edges: Edge<FlowEdgeData>[];
 }
